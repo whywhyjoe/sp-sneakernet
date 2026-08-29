@@ -1,0 +1,11 @@
+{
+  "name": "sp-env-scripts",
+  "private": true,
+  "description": "Machine-level auth/browser/resolver scripts for the sp-env global skill.",
+  "scripts": {
+    "test": "node test-resolve.js"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

@@ -1,0 +1,16 @@
+# Key material — must never be committed
+*.pfx
+*.cer
+*.pem
+*.key
+
+# Machine-local configuration — tenant URLs and paths never enter the repo
+*.local.json
+env.local.json
+tenants.local.json
+
+# Local auth state
+auth/
+pw-profile/
+
+node_modules/
