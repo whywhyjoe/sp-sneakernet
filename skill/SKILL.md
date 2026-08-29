@@ -194,6 +194,25 @@ For a new project, do THIS:
 6. **Iterate**: change app/, deploy, rerun the relevant op. `reset-dev.ps1
    -Force` for a clean slate. Auth stale at any point → `auth-refresh` → retry.
 
+### BSP parts — opt-in pattern, NOT the default
+
+Only when the user says they're building a **BSP part / BSP project**: follow
+the guidance in the local `bsp-sp-parts` repo (path under `localRepos.bspParts`
+in `tenants.local.json` — read its README first). It defines the four-artifact
+web-part pattern (`<tool>.webpart.html` per-instance stub, shared `<tool>.js`
+engine, `<tool>.css` on design-system tokens, per-instance `config.json`), the
+`_shared/dcs-part-boot.js` boot contract (host-div wait, multi-instance mount,
+edit-mode placeholder, SPA re-mount), and the portal runtime already live on
+the site: BSP design system bundle, self-hosted `Code/lib/alpine.js`, and
+`fcu-standard.js` (supplies `waitForElement`, `waitForPnP2`,
+`dcsOnSpaNavigation`, `dcsRegisterAlpineComponent`, `__dcsIsEditMode` —
+including the Alpine wait/registration patterns). Buildless, CDN-free at
+runtime.
+
+For everything else, DO NOT reach for the BSP pattern — the simple §4 scaffold
+(or a plain divergent build) is the default. Sections 0–3 bind BSP work like
+any other.
+
 ## 5. Runbooks
 
 Index in `runbooks/INDEX.md`; one page per runbook. Scripts in `scripts/` here
