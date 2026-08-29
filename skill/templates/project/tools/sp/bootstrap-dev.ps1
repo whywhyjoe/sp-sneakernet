@@ -44,7 +44,27 @@ if ($existing) {
 } else {
     $tpl = Get-PnPFile -Url $templateRel -Connection $conn -ErrorAction SilentlyContinue
     if (-not $tpl) {
-        throw "Template page missing at $templateRel. ONE-TIME site prep: create a modern page named '$($resolved.pages.template.path)' in SitePages containing your Script Editor Web Part with the literal text __SP_ENV_SCRIPT__ as its script src. Then rerun bootstrap-dev."
+        # Auto-create the template page with the Modern Script Editor web part
+        # (installed on the dev site; componentId verified live in the pilot).
+        Write-Host '[bootstrap-dev] Template page missing — creating it with the Modern Script Editor web part.'
+        $sewpComponentId = '3a328f0a-99c4-4b28-95ab-fe0847f657a3'
+        $snippet = "<div id=`"sp-env-harness`"></div>`n<div id=`"sp-env-app-root`"></div>`n<script src=`"__SP_ENV_SCRIPT__`"></script>"
+        $pageName = [System.IO.Path]::GetFileNameWithoutExtension($resolved.pages.template.path)
+        try {
+            Add-PnPPage -Name $pageName -LayoutType Article -Connection $conn | Out-Null
+            $props = @{ script = $snippet; title = 'sp-env template'; removePadding = $false; spPageContextInfo = $false } | ConvertTo-Json -Compress
+            Add-PnPPageWebPart -Page $pageName -Component $sewpComponentId -WebPartProperties $props -Connection $conn
+            Set-PnPPage -Identity $pageName -Publish -Connection $conn | Out-Null
+        } catch {
+            throw "Could not auto-create the template page (is the Modern Script Editor web part [$sewpComponentId] installed on this site?): $($_.Exception.Message.Split("`n")[0]). Manual fallback: create '$($resolved.pages.template.path)' with a Script Editor Web Part containing the __SP_ENV_SCRIPT__ token (see app/sewp-snippet.html)."
+        }
+        $tplLeaf = Split-Path $templateRel -Leaf
+        $tplItem = Get-PnPListItem -List 'Site Pages' -Connection $conn -PageSize 500 |
+            Where-Object { $_['FileLeafRef'] -eq $tplLeaf } | Select-Object -First 1
+        if (-not $tplItem -or ([string]$tplItem['CanvasContent1']) -notmatch '__SP_ENV_SCRIPT__') {
+            throw 'Template page was created but the __SP_ENV_SCRIPT__ token did not land in CanvasContent1 — inspect the page before proceeding.'
+        }
+        Write-Host '[bootstrap-dev] Template page created; token verified in CanvasContent1.'
     }
     Copy-PnPFile -SourceUrl $templateRel -TargetUrl $harnessRel -Force -Connection $conn
     $leaf = Split-Path $harnessRel -Leaf

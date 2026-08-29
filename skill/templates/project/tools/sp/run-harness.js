@@ -29,7 +29,10 @@ const { chromium } = require(path.join(skillScripts, 'node_modules', 'playwright
     if (/login\.microsoftonline\.com/.test(page.url())) {
       throw new Error('AUTH-STALE: login redirect — run sp-env auth-refresh.ps1 and retry.');
     }
-    await page.waitForSelector('#sp-env-harness-done', { timeout: timeoutMs });
+    // The done marker is an EMPTY zero-size div — it is never 'visible', so the
+    // default wait would time out even when the op succeeded (a false-negative
+    // verifier, found live in the pilot). Wait for DOM attachment instead.
+    await page.waitForSelector('#sp-env-harness-done', { state: 'attached', timeout: timeoutMs });
     const result = await page.evaluate(() => window.__spEnvResult);
     const rows = await page.evaluate(async (site) => {
       const r = await fetch(site + "/_api/web/lists/getbytitle('TestRuns')/items?$select=Id,Suite,Passed,Results,GitSha,Created&$orderby=Id desc&$top=5",

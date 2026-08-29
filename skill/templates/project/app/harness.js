@@ -30,16 +30,22 @@
   }
 
   // Modern SP pages run an AMD loader; a UMD bundle injected LATE registers as
-  // an anonymous AMD module and never sets window globals. Hide define during
-  // the load and restore it after (proven fix on this tenant — see sp-env skill).
+  // an anonymous AMD module and never sets window globals (proven on this
+  // tenant). Hide define.amd — not define itself — during the load; restore on
+  // both success and failure.
   function loadScriptNoAmd(url) {
-    var savedDefine = window.define;
-    window.define = undefined;
-    return loadScript(url).then(function () {
-      window.define = savedDefine;
-    }, function (e) {
-      window.define = savedDefine;
-      throw e;
+    return new Promise(function (res, rej) {
+      var amd = null;
+      if (typeof window.define === 'function' && window.define.amd) {
+        amd = window.define.amd;
+        try { delete window.define.amd; } catch (e) { window.define.amd = undefined; }
+      }
+      function restore() { if (amd) { window.define.amd = amd; amd = null; } }
+      var s = document.createElement('script');
+      s.src = url;
+      s.onload = function () { restore(); res(); };
+      s.onerror = function () { restore(); rej(new Error('failed to load ' + url)); };
+      document.head.appendChild(s);
     });
   }
 

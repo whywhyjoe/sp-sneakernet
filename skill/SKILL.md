@@ -99,6 +99,17 @@ both tenants** — always resolve through the resolver, never by echoing a dev p
   first. **baseUrl:** `_spPageContextInfo` is NOT reliably present on modern
   pages — use `window._spPageContextInfo?.webAbsoluteUrl` with a fallback to
   the deployed `resolved-env.json` `siteUrl`.
+- **Modern Script Editor web part** is installed on the dev site — componentId
+  `3a328f0a-99c4-4b28-95ab-fe0847f657a3`. Its properties include an
+  `spPageContextInfo` toggle (can inject `_spPageContextInfo` when true; our
+  pattern keeps it false and uses the resolved-env fallback instead). Template
+  pages can therefore be CREATED programmatically on dev (bootstrap-dev does
+  this) — manual page prep is only needed on prod or where the web part is
+  missing.
+- **Verifier quality:** a verification step that can time out while the
+  operation succeeded is a defect, same severity as a false pass. Example
+  found live: Playwright's default wait is `visible`, but empty zero-size
+  marker divs are never visible — wait for `state: 'attached'`.
 - **AMD trap (proven empirically on this tenant):** modern SharePoint pages run
   an AMD loader, so a UMD bundle loaded by LATE dynamic injection
   (`document.createElement('script')`) registers as an anonymous AMD module and
@@ -166,12 +177,15 @@ For a new project, do THIS:
    `lib` root (inspect the library if unsure).
 3. **Deploy**: `pwsh -File tools/sp/deploy.ps1` (copy mode → OneDrive mirror;
    allow sync latency — confirm arrival via REST, e.g. fetch harness.js URL).
+   If sync is backed up (OneDrive running but slow), `-DirectUpload` uploads
+   the artifacts via PnP with a SHA256 mirror-parity check — the mirror stays
+   canonical and sync config is never touched.
 4. **First time only — `pwsh -File tools/sp/bootstrap-dev.ps1`**: ensures
-   TestRuns + creates the harness page from the site's template page
-   (`SitePages/_app-template.aspx`, a modern page whose Script Editor Web Part
-   contains the literal token `__SP_ENV_SCRIPT__` — see
-   `templates/project/app/sewp-snippet.html`). If the template page is missing,
-   that is the ONE sanctioned manual site-prep step; say exactly what to create.
+   TestRuns + the template page (`SitePages/_app-template.aspx` — auto-created
+   with the Modern Script Editor web part if missing) + creates the harness
+   page from it by rewriting the `__SP_ENV_SCRIPT__` token. Manual page prep is
+   only needed if the web part isn't installed (the error says exactly what to
+   create) or on prod.
 5. **Provision / verify / test** (closed loop, per §0):
    `node tools/sp/run-harness.js provision` → `… verify` (must report zero
    drift) → `… test-smoke`. Each prints the harness result AND the latest
