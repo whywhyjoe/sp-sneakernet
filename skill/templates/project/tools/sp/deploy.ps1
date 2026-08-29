@@ -35,6 +35,15 @@ switch ($Mode) {
         if (-not (Test-Path $appDir)) { throw "app/ directory not found at $appDir" }
         Copy-Item (Join-Path $appDir '*') $mirror -Recurse -Force
         $count = @(Get-ChildItem $appDir -Recurse -File).Count + 1
+
+        # The mirror is an INTENTIONAL reparse point into OneDrive (same local
+        # path on every machine) — expected, never something to "fix". Files only
+        # reach the library if OneDrive is running; warn loudly if it is not.
+        # If sync stays broken beyond that: read-only diagnostics only, then STOP
+        # and tell the user. Never create OneDrive folders or change sync config.
+        if (-not (Get-Process OneDrive -ErrorAction SilentlyContinue)) {
+            Write-Warning 'DEPLOY-SYNC-BLOCKED: OneDrive is NOT running — the copied files will not sync to the library until it is. Ask the user to start OneDrive; do NOT attempt to repair sync configuration.'
+        }
         Write-Host "DEPLOY-OK mode=copy files=$count gitSha=$sha mirror='$mirror' (OneDrive sync latency applies before files are live)"
     }
     'push'      { throw 'push mode is a Phase 3 deliverable — not implemented yet.' }

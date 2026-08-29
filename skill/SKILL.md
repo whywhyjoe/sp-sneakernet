@@ -65,6 +65,22 @@ scripts and reads back what the human pastes (via the JSFiddle bridge).
   `roots`. If both sources define a value and they disagree, tools **error out** —
   they never guess.
 
+**OneDrive mirrors — facts and hard limits:**
+- The mirror paths (see `mirrors` in `tenants.local.json`) are **intentional
+  reparse points** (junctions into the OneDrive sync folder) so the local path
+  is IDENTICAL on every dev and prod machine. A mirror being a reparse point is
+  EXPECTED — it is not an anomaly to investigate or "fix".
+- If deployed files never appear in the library: **first check that OneDrive is
+  actually running** (`Get-Process OneDrive`). Allowed diagnostics, all
+  read-only: is the process up; does the reparse point resolve to a real
+  location; do the files exist at the target; has the file arrived in the
+  library (REST check on the file URL).
+- **FORBIDDEN, always:** creating new folders inside OneDrive, changing or
+  re-linking sync locations, moving the reparse point, or restructuring
+  anything to "repair" sync. If sync is broken beyond "OneDrive isn't
+  running", STOP and tell the user exactly what you observed — sync
+  configuration is theirs alone.
+
 **Environment identity rule: the SITE URL defines dev vs prod. Folder/library names
 (`Code`, `Dev`, `code`, `dev`) do NOT indicate environment — both tenants have both.**
 `code`-root libraries hold would-be-production code and shared repos (bsp-design,
