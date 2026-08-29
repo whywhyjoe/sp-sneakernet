@@ -1,8 +1,9 @@
 // Headless check of the Playwright persistent profile against the dev site.
 // Prints one JSON line: { authenticated, kind, ... }.
-// kind: ok | auth_stale | browser_missing | profile_locked | network | timeout | tooling
+// kind: ok | auth_stale | authorization | browser_missing | profile_locked | network | timeout | tooling
 // Exit codes: 0 = authenticated; 3 = auth_stale (interactive re-login is the fix);
-//             4 = tooling/environment failure (re-login will NOT fix it); 2 = config missing.
+//             4 = anything else, incl. authorization = valid session lacking rights
+//             (re-login will NOT fix it); 2 = config missing.
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -54,8 +55,11 @@ function finish(result) {
     if (probe.authenticated) {
       result = Object.assign({ kind: 'ok' }, probe);
     } else if (/login\.microsoftonline\.com|login\.live\.com|login\.windows\.net/.test(page.url() || '') ||
-               /REST status (401|403)/.test(probe.reason || '')) {
+               /REST status 401/.test(probe.reason || '')) {
       result = Object.assign({ kind: 'auth_stale' }, probe);
+    } else if (/REST status 403/.test(probe.reason || '')) {
+      // Valid session, missing rights — an interactive re-login cannot fix this.
+      result = Object.assign({ kind: 'authorization' }, probe);
     } else {
       result = Object.assign({ kind: classifyError(new Error(probe.reason || 'probe failed')) }, probe);
       if (result.kind === 'ok') result.kind = 'tooling';

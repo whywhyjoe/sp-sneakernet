@@ -21,7 +21,8 @@ function Save-SpEnvAuth {
         [Parameter(Mandatory)][string]$Tenant,
         [string]$ObjectId,
         [string]$AppName,
-        [string]$Scope
+        [string]$Scope,
+        [string]$KeyId
     )
     $authDir = Join-Path $script:SpEnvRoot 'auth'
     if (-not (Test-Path $authDir)) { New-Item -ItemType Directory -Path $authDir -Force | Out-Null }
@@ -32,6 +33,7 @@ function Save-SpEnvAuth {
         objectId   = $ObjectId
         appName    = $AppName
         scope      = $Scope
+        keyId      = $KeyId
     } | ConvertTo-Json | Set-Content (Join-Path $authDir 'dev-auth.local.json') -Encoding utf8
 }
 

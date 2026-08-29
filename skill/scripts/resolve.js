@@ -7,28 +7,43 @@
 //      resolves to tenants.local.json[env].siteUrl when the global skill is present
 //      (dev machines — authoritative). On machines without tenants.local.json
 //      (prod), env.local.json must supply siteUrl and roots.
-//      If both sources define siteUrl and they differ → hard error (conflict).
-//   3. Roots: tenants[env].roots, else env.local roots. A library/page entry names
-//      a root logically ("code" | "devTools" | "lib" | "sitePages"); unknown roots
-//      are rejected.
-//   4. Paths in committed manifests must be safe relative paths: no URLs, no drive
-//      letters, no leading slash, no "..", no encoded traversal, no backslashes.
-//   5. Mirrors: tenants.mirrors overlaid with env.local mirrors (local wins).
-//   6. Every resolved URL must start with the selected environment's siteUrl.
+//   3. Empty-string / empty-object / null local values are treated as OMITTED.
+//      Where tenants.local.json exists it is AUTHORITATIVE: any explicitly
+//      supplied local siteUrl/root/mirror that disagrees with it (or adds an
+//      unknown key) is a hard error — locals never silently override.
+//   4. Roots AND manifest paths must be safe relative paths: no URLs, no drive
+//      letters, no leading slash, no "..", no percent-encoding (rejected outright
+//      after stable decode), no backslashes.
+//   5. Mirrors: authoritative global per-root paths; locals only fill gaps when
+//      no global skill exists.
+//   6. Containment is enforced on the WHATWG-URL-normalized result: same origin,
+//      and pathname inside the site path on a segment boundary.
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { URL } = require('url');
 
 function stripSlash(u) { return String(u || '').replace(/\/+$/, ''); }
 
+function decodeStable(p, label) {
+  let cur = String(p);
+  for (let i = 0; i < 10; i++) {
+    let next;
+    try { next = decodeURIComponent(cur); } catch (e) { throw new Error(label + ': malformed percent-encoding in "' + p + '"'); }
+    if (next === cur) return cur;
+    cur = next;
+  }
+  throw new Error(label + ': percent-encoding does not stabilize in "' + p + '"');
+}
+
 function assertSafeRelPath(p, label) {
   if (typeof p !== 'string' || p.length === 0) throw new Error(label + ': path must be a non-empty string');
-  let decoded = p;
-  for (let i = 0; i < 3; i++) {
-    try { decoded = decodeURIComponent(decoded); } catch (e) { throw new Error(label + ': malformed encoding in path "' + p + '"'); }
-  }
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(decoded)) throw new Error(label + ': absolute URL/scheme not allowed in manifest: "' + p + '"');
-  if (/^[a-zA-Z]:[\\/]/.test(decoded)) throw new Error(label + ': drive path not allowed in manifest: "' + p + '"');
+  // Manifest/config paths are plain names: any percent character is rejected
+  // outright (encoded separators/dot segments have no legitimate use here).
+  if (/%/.test(p)) throw new Error(label + ': percent characters not allowed in manifest paths: "' + p + '"');
+  const decoded = decodeStable(p, label); // defense-in-depth; also catches malformed input
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(decoded)) throw new Error(label + ': absolute URL/scheme not allowed: "' + p + '"');
+  if (/^[a-zA-Z]:[\\/]/.test(decoded)) throw new Error(label + ': drive path not allowed: "' + p + '"');
   if (/\\/.test(decoded)) throw new Error(label + ': backslashes not allowed; use forward slashes: "' + p + '"');
   if (/^\//.test(decoded)) throw new Error(label + ': leading slash not allowed; paths are root-relative: "' + p + '"');
   const segs = decoded.split('/');
@@ -36,6 +51,34 @@ function assertSafeRelPath(p, label) {
   if (segs.some((s) => s.length === 0)) throw new Error(label + ': empty path segment in "' + p + '"');
   return decoded;
 }
+
+// Treat '' / null / {} / _comment keys as "not supplied".
+function pruneEmpty(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === '_comment') continue;
+    if (v === null || v === undefined || v === '') continue;
+    out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// Where an authoritative map exists, explicit local entries must agree with it.
+function mergeAuthoritative(globalMap, localMap, what, comparator) {
+  const g = pruneEmpty(globalMap);
+  const l = pruneEmpty(localMap);
+  if (g && l) {
+    for (const [k, v] of Object.entries(l)) {
+      if (!(k in g)) throw new Error('Conflict: env.local.json ' + what + '.' + k + ' is not defined in authoritative tenants.local.json — remove it or fix the global file.');
+      if (!comparator(g[k], v)) throw new Error('Conflict: env.local.json ' + what + '.' + k + ' ("' + v + '") differs from authoritative tenants.local.json ("' + g[k] + '") — locals never override; refusing to guess.');
+    }
+    return g;
+  }
+  return g || l;
+}
+
+const eqPath = (a, b) => String(a).replace(/[\\/]+$/, '').toLowerCase() === String(b).replace(/[\\/]+$/, '').toLowerCase();
 
 function resolveTarget(envJson, envLocal, tenants /* may be null on prod machines */) {
   if (!envLocal || typeof envLocal !== 'object') throw new Error('env.local.json is required (gitignored, per machine) — refusing to run without it.');
@@ -49,33 +92,39 @@ function resolveTarget(envJson, envLocal, tenants /* may be null on prod machine
   if (siteAlias !== 'primary') throw new Error('env.json "site" must be the alias "primary" (got "' + siteAlias + '"); real URLs never appear in manifests.');
 
   let siteUrl;
+  const localSite = envLocal.siteUrl && envLocal.siteUrl !== '' ? envLocal.siteUrl : null;
   if (tEnv) {
     siteUrl = stripSlash(tEnv.siteUrl);
-    if (envLocal.siteUrl && stripSlash(envLocal.siteUrl).toLowerCase() !== siteUrl.toLowerCase()) {
-      throw new Error('Conflict: env.local.json siteUrl (' + envLocal.siteUrl + ') differs from tenants.local.json ' + env + ' siteUrl — fix one; refusing to guess.');
+    if (localSite && stripSlash(localSite).toLowerCase() !== siteUrl.toLowerCase()) {
+      throw new Error('Conflict: env.local.json siteUrl (' + localSite + ') differs from tenants.local.json ' + env + ' siteUrl — fix one; refusing to guess.');
     }
   } else {
-    if (!envLocal.siteUrl) throw new Error('No tenants.local.json on this machine — env.local.json must supply siteUrl.');
-    siteUrl = stripSlash(envLocal.siteUrl);
+    if (!localSite) throw new Error('No tenants.local.json on this machine — env.local.json must supply siteUrl.');
+    siteUrl = stripSlash(localSite);
   }
 
-  const roots = (tEnv && tEnv.roots) || envLocal.roots;
-  if (!roots || typeof roots !== 'object') throw new Error('No roots available (tenants.local.json ' + env + '.roots or env.local.json roots).');
+  const roots = mergeAuthoritative(tEnv && tEnv.roots, envLocal.roots, 'roots', eqPath);
+  if (!roots) throw new Error('No roots available (tenants.local.json ' + env + '.roots or env.local.json roots).');
+  for (const [k, v] of Object.entries(roots)) assertSafeRelPath(v, 'roots.' + k);
 
-  const mirrors = Object.assign({}, (tenants && tenants.mirrors) || {}, envLocal.mirrors || {});
-  delete mirrors._comment;
+  const mirrors = mergeAuthoritative(tenants && tenants.mirrors, envLocal.mirrors, 'mirrors', eqPath) || {};
+
+  const siteBase = new URL(siteUrl + '/');
 
   function resolveEntry(entry, label, defaultRoot) {
     const rootKey = entry.root || defaultRoot;
     if (!rootKey) throw new Error(label + ': no "root" specified and no default applies');
     const rootPath = roots[rootKey];
-    if (rootPath === undefined || rootPath === null || rootPath === '') {
-      throw new Error(label + ': unknown root "' + rootKey + '" (known: ' + Object.keys(roots).filter((k) => k !== '_comment').join(', ') + ')');
+    if (rootPath === undefined) {
+      throw new Error(label + ': unknown root "' + rootKey + '" (known: ' + Object.keys(roots).join(', ') + ')');
     }
     const rel = assertSafeRelPath(entry.path, label);
-    const url = siteUrl + '/' + stripSlash(rootPath) + '/' + rel;
-    if (!url.toLowerCase().startsWith(siteUrl.toLowerCase() + '/')) throw new Error(label + ': resolved URL escaped the selected environment site — refusing.');
-    const out = { root: rootKey, path: rel, url: url };
+    // Build via WHATWG URL so any normalization the transport would apply is applied
+    // BEFORE containment is checked (origin + segment-boundary pathname prefix).
+    const target = new URL(stripSlash(rootPath) + '/' + rel, siteBase);
+    if (target.origin !== siteBase.origin) throw new Error(label + ': resolved URL left the site origin — refusing.');
+    if (!(target.pathname + '/').startsWith(siteBase.pathname)) throw new Error(label + ': resolved URL escaped the selected environment site — refusing.');
+    const out = { root: rootKey, path: rel, url: target.origin + target.pathname };
     if (mirrors[rootKey]) out.mirror = path.win32.join(mirrors[rootKey], rel.replace(/\//g, '\\'));
     return out;
   }
