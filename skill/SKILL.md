@@ -94,8 +94,18 @@ both tenants** — always resolve through the resolver, never by echoing a dev p
   names within a root, and flow names** on both tenants, so connection/variable
   rebinding on prod import is mechanical lookup. What differs per tenant is the
   site URL and the **library root paths** — both resolved via `tenants.local.json`.
-- PnPjs custom bundle: `window.pnp2.sp`; always call
-  `sp.setup({ sp: { baseUrl: _spPageContextInfo.webAbsoluteUrl } })` first.
+- PnPjs custom bundle: `lib/pnp2.bundle.js` (UMD; sets `window.pnp2` and
+  `window.pnp` for compat); always call `sp.setup({ sp: { baseUrl: … } })`
+  first. **baseUrl:** `_spPageContextInfo` is NOT reliably present on modern
+  pages — use `window._spPageContextInfo?.webAbsoluteUrl` with a fallback to
+  the deployed `resolved-env.json` `siteUrl`.
+- **AMD trap (proven empirically on this tenant):** modern SharePoint pages run
+  an AMD loader, so a UMD bundle loaded by LATE dynamic injection
+  (`document.createElement('script')`) registers as an anonymous AMD module and
+  never sets `window.pnp2`. A literal `<script src=…>` inside SEWP markup runs
+  early enough to be safe. When injecting the bundle dynamically, temporarily
+  hide the loader (save `window.define`, set it `undefined`, load, restore) —
+  the template `loader.js`/`harness.js` do this; keep the pattern.
 - Shipped SP code: **no ES module imports**. Build steps allowed but minimal.
 - Deploys overwrite in place; low traffic, "try again" is acceptable.
 - Git bundle transport for offline contributors: `main.bundle` in the synced folder,

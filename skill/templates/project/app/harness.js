@@ -29,6 +29,20 @@
     });
   }
 
+  // Modern SP pages run an AMD loader; a UMD bundle injected LATE registers as
+  // an anonymous AMD module and never sets window globals. Hide define during
+  // the load and restore it after (proven fix on this tenant — see sp-env skill).
+  function loadScriptNoAmd(url) {
+    var savedDefine = window.define;
+    window.define = undefined;
+    return loadScript(url).then(function () {
+      window.define = savedDefine;
+    }, function (e) {
+      window.define = savedDefine;
+      throw e;
+    });
+  }
+
   function finish(result) {
     window.__spEnvResult = result;
     document.getElementById('sp-env-out').textContent = JSON.stringify(result, null, 2);
@@ -79,10 +93,12 @@
     .then(function (r) { if (!r.ok) { throw new Error('resolved-env.json HTTP ' + r.status + ' — run deploy first'); } return r.json(); })
     .then(function (env) {
       var pnpUrl = env.libraries.pnp2 && env.libraries.pnp2.url;
-      var chain = window.pnp2 ? Promise.resolve() : loadScript(pnpUrl);
+      var chain = window.pnp2 ? Promise.resolve() : loadScriptNoAmd(pnpUrl);
       return chain.then(function () {
         if (!window.pnp2) { throw new Error('window.pnp2 missing after loading ' + pnpUrl); }
-        window.pnp2.sp.setup({ sp: { baseUrl: window._spPageContextInfo.webAbsoluteUrl } });
+        // _spPageContextInfo is not reliable on modern pages; resolved-env siteUrl is.
+        var baseUrl = (window._spPageContextInfo && window._spPageContextInfo.webAbsoluteUrl) || env.siteUrl;
+        window.pnp2.sp.setup({ sp: { baseUrl: baseUrl } });
         var params = new URLSearchParams(window.location.search);
         var ops = ['provision.js', 'verify.js', 'test-smoke.js'];
         var buttons = document.getElementById('sp-env-buttons');
