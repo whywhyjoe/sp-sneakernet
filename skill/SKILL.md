@@ -116,8 +116,18 @@ it. Tested by `scripts/test-resolve.js`.
 
 ## 4. Starting a new project (the standard workflow)
 
-When asked to build anything new on SharePoint, do THIS — never improvise the
-tooling:
+**Scope:** this workflow is the default for a new PROJECT (an app with a repo,
+lists, pages, and a test loop). It is not a straitjacket: for ad-hoc or
+divergent asks — a one-off page, a quick list change, an experiment that
+doesn't fit the template-page pattern — skip the scaffold and use whatever
+approach fits (PnP PowerShell, REST, a hand-built page). Sections 0–3 still
+bind EVERY task regardless: verify it yourself in a live browser (§0), pull
+URLs only from tenants.local.json, reuse the existing auth (Connect-SpEnvDev /
+pw-profile via `scripts/sp-env-common.ps1`), and keep shipped SP code
+module-free with window.pnp2 + setup(). Never re-derive tooling that already
+exists here; diverge from the workflow, not from the rules.
+
+For a new project, do THIS:
 
 1. **Scaffold**: `pwsh -File ~/.claude/skills/sp-env/scripts/scaffold-project.ps1
    -Path <repoDir> -Project <name>` — stamps env.json, `.gitignore`,
