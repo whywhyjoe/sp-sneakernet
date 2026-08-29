@@ -41,6 +41,12 @@ function assertSafeRelPath(p, label) {
   // Manifest/config paths are plain names: any percent character is rejected
   // outright (encoded separators/dot segments have no legitimate use here).
   if (/%/.test(p)) throw new Error(label + ': percent characters not allowed in manifest paths: "' + p + '"');
+  // Control characters are rejected outright: the WHATWG URL parser STRIPS
+  // tab/CR/LF, so ".\n." would normalize to ".." after our segment checks ran.
+  if (/[\x00-\x1f\x7f]/.test(p)) throw new Error(label + ': control characters not allowed in manifest paths: ' + JSON.stringify(p));
+  // ? and # would be parsed as query/fragment and silently dropped from the
+  // resolved URL — an aliasing hazard, so they are rejected too.
+  if (/[?#]/.test(p)) throw new Error(label + ': "?" and "#" not allowed in manifest paths: "' + p + '"');
   const decoded = decodeStable(p, label); // defense-in-depth; also catches malformed input
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(decoded)) throw new Error(label + ': absolute URL/scheme not allowed: "' + p + '"');
   if (/^[a-zA-Z]:[\\/]/.test(decoded)) throw new Error(label + ': drive path not allowed: "' + p + '"');
@@ -120,10 +126,15 @@ function resolveTarget(envJson, envLocal, tenants /* may be null on prod machine
     }
     const rel = assertSafeRelPath(entry.path, label);
     // Build via WHATWG URL so any normalization the transport would apply is applied
-    // BEFORE containment is checked (origin + segment-boundary pathname prefix).
+    // BEFORE containment is checked. Containment is enforced at BOTH boundaries:
+    // the site (origin + pathname prefix) and the selected root — a normalized
+    // result may not escape either.
+    const rootBase = new URL(stripSlash(rootPath) + '/', siteBase);
     const target = new URL(stripSlash(rootPath) + '/' + rel, siteBase);
     if (target.origin !== siteBase.origin) throw new Error(label + ': resolved URL left the site origin — refusing.');
     if (!(target.pathname + '/').startsWith(siteBase.pathname)) throw new Error(label + ': resolved URL escaped the selected environment site — refusing.');
+    if (rootBase.origin !== siteBase.origin || !(rootBase.pathname + '/').startsWith(siteBase.pathname)) throw new Error(label + ': configured root escaped the site — refusing.');
+    if (!(target.pathname + '/').startsWith(rootBase.pathname)) throw new Error(label + ': resolved URL escaped the "' + rootKey + '" root — refusing.');
     const out = { root: rootKey, path: rel, url: target.origin + target.pathname };
     if (mirrors[rootKey]) out.mirror = path.win32.join(mirrors[rootKey], rel.replace(/\//g, '\\'));
     return out;

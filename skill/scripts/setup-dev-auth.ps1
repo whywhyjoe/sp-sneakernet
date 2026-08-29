@@ -139,25 +139,30 @@ function Get-BootstrapConn {
     }
 }
 
+function Test-AppAbsent {
+    # Deterministic absence check: a filter query returns an EMPTY LIST for a
+    # deleted app and THROWS on transport/permission failures — a transient
+    # error can never be mistaken for "the app is gone".
+    param([string]$AppClientId, $Conn)
+    $res = Invoke-PnPGraphMethod -Url "applications?`$filter=appId eq '$AppClientId'&`$select=id" -Connection $Conn
+    return (@($res.value).Count -eq 0)
+}
+
 function Complete-Retirement {
-    # Deletes the retired app, VERIFIES it is gone, then (and only then) removes
-    # its certificate and the retirement marker. Throws on any failure so the
-    # marker survives for the next attempt.
+    # Deletes the retired app, VERIFIES it is gone (deterministically), then and
+    # only then removes its certificate and the retirement marker. Any failure —
+    # including a failure to VERIFY — throws, so the marker survives for the
+    # next attempt.
     $r = Read-JsonFile $retirePath
     if (-not $r) { return }
     Write-Host "[setup-dev-auth] Completing retirement of previous app $($r.clientId)."
     $conn = Get-BootstrapConn
-    $gone = $false
-    try { Get-PnPAzureADApp -Identity $r.clientId -Connection $conn | Out-Null } catch { $gone = $true }
-    if (-not $gone) {
+    if (-not (Test-AppAbsent -AppClientId $r.clientId -Conn $conn)) {
         Remove-PnPAzureADApp -Identity $r.clientId -Connection $conn -Force
         $deadline = (Get-Date).AddMinutes(2)
-        while (-not $gone) {
-            try { Get-PnPAzureADApp -Identity $r.clientId -Connection $conn | Out-Null } catch { $gone = $true }
-            if (-not $gone) {
-                if ((Get-Date) -gt $deadline) { throw "Old app $($r.clientId) still present after deletion — retirement NOT complete; marker kept." }
-                Start-Sleep -Seconds 10
-            }
+        while (-not (Test-AppAbsent -AppClientId $r.clientId -Conn $conn)) {
+            if ((Get-Date) -gt $deadline) { throw "Old app $($r.clientId) still present after deletion — retirement NOT complete; marker kept." }
+            Start-Sleep -Seconds 10
         }
     }
     if ($r.thumbprint) { Remove-Item "Cert:\CurrentUser\My\$($r.thumbprint)" -ErrorAction SilentlyContinue }
@@ -230,15 +235,23 @@ function Invoke-DeepAudit {
 
 # ==================== main flow ====================
 
-# 0. An unfinished retirement blocks everything else.
-if (Test-Path $retirePath) {
-    Import-Module PnP.PowerShell -ErrorAction Stop
-    Complete-Retirement
-}
-
 $health  = Test-SpEnvAuthHealth
 $oldAuth = Get-SpEnvAuth
 $pending = Read-JsonFile $pendingPath
+
+# 0. An unfinished retirement is completed ONLY once the replacement credential
+#    is proven: either the pending registration resumes first (its own path ends
+#    with smoke test + Complete-Retirement), or — with no pending work — the
+#    active credential must pass the full health check before the old app is
+#    destroyed. A crash mid-rotation therefore never deletes the last working
+#    credential.
+if ((Test-Path $retirePath) -and -not $pending) {
+    if (-not $health.healthy) {
+        throw "Retirement pending but the active credential is UNHEALTHY ($($health.reason)) — refusing to delete the previous app. Fix/rotate the active credential first; the retirement marker is kept."
+    }
+    Import-Module PnP.PowerShell -ErrorAction Stop
+    Complete-Retirement
+}
 
 if ($health.healthy -and -not $Rotate -and -not $pending) {
     Write-Host "[setup-dev-auth] Credential healthy (clientId $($oldAuth.clientId), scope Sites.Selected, key non-exportable, remote connect ok) — skipping registration."

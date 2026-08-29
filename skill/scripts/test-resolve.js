@@ -97,6 +97,17 @@ rejects('absolute root rejected', () => {
   return resolveTarget(envJson, { env: 'dev' }, evil);
 }, /leading slash/);
 
+// --- URL-parser character stripping / aliasing (Sol re-review #2 mutations) ---
+rejects('LF dot-segment (URL strips \\n)', () => resolveTarget(bad('.\n./OtherWeb/payload.js'), { env: 'dev' }, tenants), /control characters/);
+rejects('CR dot-segment (URL strips \\r)', () => resolveTarget(bad('.\r./OtherWeb/payload.js'), { env: 'dev' }, tenants), /control characters/);
+rejects('TAB dot-segment (URL strips \\t)', () => resolveTarget(bad('.\t./OtherWeb/payload.js'), { env: 'dev' }, tenants), /control characters/);
+rejects('query alias rejected', () => resolveTarget(bad('legit.js?ignored'), { env: 'dev' }, tenants), /[?#]/);
+rejects('fragment alias rejected', () => resolveTarget(bad('legit.js#ignored'), { env: 'dev' }, tenants), /[?#]/);
+rejects('root LF dot-segment rejected', () => {
+  const evil = JSON.parse(JSON.stringify(tenants)); evil.dev.roots.code = 'Nested/.\n./OtherWeb';
+  return resolveTarget(envJson, { env: 'dev' }, evil);
+}, /control characters/);
+
 // --- misc contract ---
 rejects('site must be alias', () => resolveTarget({ site: 'https://x.example', libraries: {} }, { env: 'dev' }, tenants), /alias/);
 rejects('env.local required', () => resolveTarget(envJson, null, tenants), /env\.local\.json is required/);

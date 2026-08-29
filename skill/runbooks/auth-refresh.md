@@ -5,11 +5,12 @@
 dev site using the persistent profile, probing auth via an in-page REST call.
 
 `auth-check.js` classifies failures: `ok` (exit 0), `auth_stale` (exit 3 — login
-redirect or REST 401/403), or a tooling kind (exit 4): `browser_missing`,
-`profile_locked`, `network`, `timeout`, `tooling`. **Only `auth_stale` triggers
-the headed re-login** (the one case needing a human, for credential entry).
-Tooling failures are reported as tooling failures — an interactive login is never
-offered as a fix for them.
+redirect or REST **401** only), or a non-relogin kind (exit 4): `authorization`
+(valid session lacking rights — REST 403), `browser_missing`, `profile_locked`,
+`network`, `timeout`, `tooling`. **Only `auth_stale` triggers the headed
+re-login** (the one case needing a human, for credential entry). Authorization
+and tooling failures are reported as what they are — an interactive login is
+never offered as a fix for them.
 
 **How to call:**
 ```powershell

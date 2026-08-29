@@ -104,11 +104,15 @@ it. Tested by `scripts/test-resolve.js`.
    `{ "root": "code" | "devTools" | "lib" | "sitePages", "path": "apps/x" }`
    (pages default to root `sitePages`). Roots map to per-tenant paths via
    `tenants.local.json[env].roots` (or `env.local.json.roots` on prod machines).
-4. Manifest paths must be safe relative paths — URLs, drive letters, leading
-   slashes, backslashes, `..` (including encoded), and unknown roots are rejected.
-5. Mirror paths come from global `mirrors` (per root), overridable in
-   `env.local.json.mirrors`.
-6. Every resolved URL must remain inside the selected environment's site.
+4. Manifest paths AND configured roots must be safe relative paths — URLs, drive
+   letters, leading slashes, backslashes, `..`, percent characters, control
+   characters, `?`/`#`, and unknown roots are all rejected outright.
+5. Mirror paths come from global `mirrors` (per root). Locals never override:
+   where `tenants.local.json` exists, an explicit local root/mirror/siteUrl must
+   match it exactly (blank = omitted); disagreements and unknown keys are errors.
+   Locals supply these values only on machines without the global skill (prod).
+6. Every resolved URL must remain inside the selected environment's site AND
+   inside its selected root, checked after WHATWG URL normalization.
 
 ## 4. Runbooks
 
