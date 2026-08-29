@@ -42,14 +42,17 @@ try {
     robocopy $source $stage /E /NFL /NDL /NJH /NJS | Out-Null
     Assert-NativeOk 'robocopy (stage)' $RoboOk
 
+    # Validate ALL shipped code in the stage: skill scripts AND project templates.
+    foreach ($js in Get-ChildItem (Join-Path $stage 'scripts'), (Join-Path $stage 'templates') -Recurse -Filter *.js) {
+        node --check $js.FullName; Assert-NativeOk "node --check $($js.Name)"
+    }
+    foreach ($ps in Get-ChildItem (Join-Path $stage 'scripts'), (Join-Path $stage 'templates') -Recurse -Filter *.ps1) {
+        $errs = $null
+        [System.Management.Automation.Language.Parser]::ParseFile($ps.FullName, [ref]$null, [ref]$errs) | Out-Null
+        if ($errs) { throw "PowerShell parse errors in $($ps.Name): $($errs -join '; ')" }
+    }
     Push-Location (Join-Path $stage 'scripts')
     try {
-        foreach ($js in Get-ChildItem *.js) { node --check $js.FullName; Assert-NativeOk "node --check $($js.Name)" }
-        foreach ($ps in Get-ChildItem *.ps1) {
-            $errs = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($ps.FullName, [ref]$null, [ref]$errs) | Out-Null
-            if ($errs) { throw "PowerShell parse errors in $($ps.Name): $($errs -join '; ')" }
-        }
         node .\test-resolve.js | Select-Object -Last 1
         Assert-NativeOk 'resolver tests (stage)'
     } finally { Pop-Location }

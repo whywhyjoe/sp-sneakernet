@@ -149,11 +149,20 @@ function resolveTarget(envJson, envLocal, tenants /* may be null on prod machine
     pages[name] = Object.assign({}, entry, resolveEntry(entry, 'pages.' + name, 'sitePages'));
   }
 
-  return { env: env, siteUrl: siteUrl, roots: roots, mirrors: mirrors, libraries: libraries, pages: pages, lists: envJson.lists || {}, flows: envJson.flows || [], deploy: envJson.deploy || {} };
+  return { project: envJson.project || '', env: env, siteUrl: siteUrl, roots: roots, mirrors: mirrors, libraries: libraries, pages: pages, lists: envJson.lists || {}, flows: envJson.flows || [], deploy: envJson.deploy || {} };
+}
+
+function defaultSpEnvDir() {
+  // Works both from the installed skill (scripts/..) and from a copy stamped
+  // into a repo's tools/sp/ — falls back to the installed global skill.
+  const os = require('os');
+  const candidates = [path.resolve(__dirname, '..'), path.join(os.homedir(), '.claude', 'skills', 'sp-env')];
+  for (const c of candidates) { if (fs.existsSync(path.join(c, 'tenants.local.json'))) return c; }
+  return candidates[0];
 }
 
 function loadAndResolve(repoDir, spEnvDir) {
-  spEnvDir = spEnvDir || path.resolve(__dirname, '..');
+  spEnvDir = spEnvDir || defaultSpEnvDir();
   const envJsonPath = path.join(repoDir, 'env.json');
   const envLocalPath = path.join(repoDir, 'env.local.json');
   if (!fs.existsSync(envJsonPath)) throw new Error('env.json missing at ' + envJsonPath);

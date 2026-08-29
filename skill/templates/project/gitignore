@@ -1,0 +1,8 @@
+env.local.json
+*.local.json
+resolved-env.json
+node_modules/
+*.pfx
+*.cer
+*.pem
+*.key

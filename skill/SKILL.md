@@ -114,11 +114,43 @@ it. Tested by `scripts/test-resolve.js`.
 6. Every resolved URL must remain inside the selected environment's site AND
    inside its selected root, checked after WHATWG URL normalization.
 
-## 4. Runbooks
+## 4. Starting a new project (the standard workflow)
+
+When asked to build anything new on SharePoint, do THIS — never improvise the
+tooling:
+
+1. **Scaffold**: `pwsh -File ~/.claude/skills/sp-env/scripts/scaffold-project.ps1
+   -Path <repoDir> -Project <name>` — stamps env.json, `.gitignore`,
+   `env.local.json` (dev), `tools/sp/` (deploy, bootstrap-dev, reset-dev,
+   run-harness, resolver copy), `app/` (harness.js + provision/verify/test ops,
+   loader.js + app.js), and the thin `.claude/skills/sp-project` pointer.
+2. **Edit `env.json`** to the project's real needs: lists + columns (+ optional
+   `seed` rows), pages, deploy mode. Logical names only. Check
+   `libraries.pnp2.path` matches the actual pnp2 bundle filename in the shared
+   `lib` root (inspect the library if unsure).
+3. **Deploy**: `pwsh -File tools/sp/deploy.ps1` (copy mode → OneDrive mirror;
+   allow sync latency — confirm arrival via REST, e.g. fetch harness.js URL).
+4. **First time only — `pwsh -File tools/sp/bootstrap-dev.ps1`**: ensures
+   TestRuns + creates the harness page from the site's template page
+   (`SitePages/_app-template.aspx`, a modern page whose Script Editor Web Part
+   contains the literal token `__SP_ENV_SCRIPT__` — see
+   `templates/project/app/sewp-snippet.html`). If the template page is missing,
+   that is the ONE sanctioned manual site-prep step; say exactly what to create.
+5. **Provision / verify / test** (closed loop, per §0):
+   `node tools/sp/run-harness.js provision` → `… verify` (must report zero
+   drift) → `… test-smoke`. Each prints the harness result AND the latest
+   TestRuns rows read back via REST. Then open the app page in Playwright and
+   confirm it rendered (`#sp-env-app-root[data-sp-env-rendered]`).
+6. **Iterate**: change app/, deploy, rerun the relevant op. `reset-dev.ps1
+   -Force` for a clean slate. Auth stale at any point → `auth-refresh` → retry.
+
+## 5. Runbooks
 
 Index in `runbooks/INDEX.md`; one page per runbook. Scripts in `scripts/` here
-(machine-level: auth, resolver) and in each repo's `tools/sp/` (project-level:
-provision, verify, deploy, test, reset-dev, run-harness, pp-export).
+(machine-level: auth, resolver, scaffold) and in each repo's `tools/sp/`
+(project-level, stamped by scaffold).
 
-Available now: `setup-dev-auth` (one-time; `-Rotate` to re-key), `auth-refresh`
-(run whenever auth is stale, then retry the failed step).
+Available now: `setup-dev-auth` (one-time; `-Rotate` to re-key; `-Audit`),
+`auth-refresh` (run whenever auth is stale, then retry the failed step),
+`scaffold-project`, and the stamped project runbooks (deploy copy mode,
+bootstrap-dev, reset-dev, run-harness provision/verify/test).
