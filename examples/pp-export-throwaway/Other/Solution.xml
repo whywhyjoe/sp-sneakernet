@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.26074.163" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26074.163" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26074.00163">
+  <SolutionManifest>
+    <UniqueName>SpEnvThrowaway</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="sp-env pp-export throwaway" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions>
+      <Description description="Throwaway solution for verifying pp-export round trip. Safe to delete." languagecode="1033" />
+    </Descriptions>
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>Cr14ece</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="CDS Default Publisher" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions />
+      <EMailAddress xsi:nil="true"></EMailAddress>
+      <SupportingWebsiteUrl xsi:nil="true"></SupportingWebsiteUrl>
+      <CustomizationPrefix>cr1e0</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>39581</CustomizationOptionValuePrefix>
+      <Addresses />
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="29" id="{3f6e8a2c-5d14-4c14-9b6a-0e2f4a7c9d21}" behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

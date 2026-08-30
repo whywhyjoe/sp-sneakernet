@@ -15,8 +15,8 @@ runbooks ship in each repo's `tools/sp/` (built from the templates in Phase 2+).
 | `reset-dev` | PnP PS | — | **available** (template) | Delete everything in env.json (needs -Force), then deploy → bootstrap → provision → verify |
 | `deploy` | `copy` / `push` (Playwright) / `-DirectUpload` | `copy` / `push` (human runs upload op) | **copy + push available**; sync-live = stub (drop in Sync-Live.ps1) | copy = mirror write incl. resolved-env.json + GitSha; push = harness upload op stamping BuildId/GitSha/DeployedBy/Note (columns auto-ensured) |
 | `test` | Playwright (`run-harness.js`) | human runs harness | **available** (template) | Named ops via harness → TestRuns; dev reads back via REST |
-| `export-results` | — | human | phase 4 | Harness "copy results" button → JSON → JSFiddle |
+| `export-results` | — | human | **available** | Harness "copy results" button → JSON → JSFiddle. [export-results.md](export-results.md) |
 | `page-from-template` | via provision | via provision | phase 2 | Standalone entry point for adding a page later |
-| `pp-export` | pac | — | phase 5 | `pac solution export` + unpack into /solution, commit. **Flows only** — solutions exist here solely for flow versioning; canvas apps ship as .zip/.msapp (see SKILL.md canvas section) |
-| `pp-import` | — | human | phase 4 | Doc-only: import in maker portal, rebind connections by exact-name match |
-| `prod-update` | — | Copilot | phase 4 | `git pull`, deploy copy mode, remind human to run verify + test harness |
+| `pp-export` | pac | — | **available** (template) | `tools/sp/pp-export.ps1`: pac export + unpack into /solution, commit; `-List` to enumerate. **Flows only** — solutions exist here solely for flow versioning; canvas apps ship as .zip/.msapp (see SKILL.md canvas section). pac = dotnet global tool; env GUID in tenants.local.json powerPlatform |
+| `pp-import` | — | human | **available** | Flows-only solution import in maker portal, rebind connections by exact-name match. [pp-import.md](pp-import.md) |
+| `prod-update` | — | Copilot | **available** | Encoded in the generated `.github/copilot-instructions.md` (scaffold stamps it): `git pull`, deploy, human runs harness, paste results. Copilot also reads `.claude/skills` — see [copilot-agent-skills-findings.md](copilot-agent-skills-findings.md) |

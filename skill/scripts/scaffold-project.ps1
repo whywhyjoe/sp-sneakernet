@@ -25,7 +25,7 @@ Get-ChildItem $tpl -Recurse -File | ForEach-Object {
     $rel = $_.FullName.Substring($tpl.Length + 1)
     $destRel = switch ($rel) {
         'gitignore' { '.gitignore' }
-        default { $rel -replace '^claude-skill\\', '.claude\skills\sp-project\' }
+        default { ($rel -replace '^claude-skill\\', '.claude\skills\sp-project\') -replace '^github\\', '.github\' }
     }
     $dest = Join-Path $Path ($destRel -replace '__PROJECT__', $Project)
     New-Item -ItemType Directory -Path (Split-Path $dest -Parent) -Force | Out-Null
