@@ -146,6 +146,9 @@ function resolveTarget(envJson, envLocal, tenants /* may be null on prod machine
   }
   const pages = {};
   for (const [name, entry] of Object.entries(envJson.pages || {})) {
+    // loader is appended to the scripts-library URL and lands in executable
+    // page markup — it gets the same validation as every manifest path.
+    if (entry.loader !== undefined) assertSafeRelPath(entry.loader, 'pages.' + name + '.loader');
     pages[name] = Object.assign({}, entry, resolveEntry(entry, 'pages.' + name, 'sitePages'));
   }
 

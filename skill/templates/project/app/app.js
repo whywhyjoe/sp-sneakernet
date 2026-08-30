@@ -18,9 +18,13 @@
   var title = dataKey ? env.lists[dataKey].title : null;
   if (!title) { root.textContent = 'no data list configured'; return; }
 
-  root.innerHTML = '<h2>' + env.project + '</h2><div id="sp-env-app-status">loading ' + title + '…</div><ul id="sp-env-app-items"></ul>';
+  // Manifest strings never reach innerHTML — build with textContent.
+  root.textContent = '';
+  var h2 = document.createElement('h2'); h2.textContent = env.project || '';
+  var st = document.createElement('div'); st.id = 'sp-env-app-status'; st.textContent = 'loading ' + title + '…';
+  var ul = document.createElement('ul'); ul.id = 'sp-env-app-items';
+  root.appendChild(h2); root.appendChild(st); root.appendChild(ul);
   sp.web.lists.getByTitle(title).items.top(50)().then(function (items) {
-    var ul = document.getElementById('sp-env-app-items');
     items.forEach(function (i) {
       var li = document.createElement('li');
       li.textContent = i.Title + (i.Status ? ' — ' + i.Status : '');

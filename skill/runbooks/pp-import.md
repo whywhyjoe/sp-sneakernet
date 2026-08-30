@@ -4,10 +4,12 @@ Solutions are used for **flows only** (they exist solely to get flow
 versioning). Canvas apps ship as package .zip / .msapp instead — see the
 canvas section of SKILL.md.
 
-**You need:** the exported solution .zip (unmanaged) from the repo's
-`/solution` artifacts (or re-packed from the unpacked tree), and maker-portal
-access on the prod environment. No premium licensing exists there —
-**connection references must be re-bound by hand on every import.**
+**You need:** the exported solution .zip (unmanaged) committed at
+`packages/<SolutionName>_<version>.zip` — pp-export writes it there
+specifically because prod has no pac and cannot re-pack the unpacked
+`/solution` tree — and maker-portal access on the prod environment. No premium
+licensing exists there — **connection references must be re-bound by hand on
+every import.**
 
 ## Steps
 

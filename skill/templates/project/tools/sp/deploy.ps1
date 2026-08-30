@@ -78,25 +78,40 @@ switch ($Mode) {
     }
     'push' {
         # Browser uploader with metadata stamping (BuildId/GitSha/DeployedBy/Note).
-        # Dev: Playwright drives the harness upload op. Prod: a human opens the
-        # harness, runs upload.js, and picks the files from the cloned repo.
+        # Dev: Playwright drives the harness upload op against a temp staging.
+        # Prod: this prepares a PERSISTENT gitignored push-staging/ (app files +
+        # fresh resolved-env.json) and tells the human what to do — the browser
+        # file picker cannot carry folder structure, so push mode is FLAT-only.
         $appDir = Join-Path $repo 'app'
         if (-not (Test-Path $appDir)) { throw "app/ directory not found at $appDir" }
+        if (@(Get-ChildItem $appDir -Directory).Count) {
+            throw 'push mode is FLAT-only (the browser file picker cannot preserve subfolders) — app/ contains subdirectories; use copy mode instead.'
+        }
         $sha = (git -C $repo rev-parse --short HEAD 2>$null); if (-not $sha) { $sha = 'uncommitted' }
         $resolved | Add-Member -NotePropertyName gitSha -NotePropertyValue "$sha" -Force
         $resolved | Add-Member -NotePropertyName deployedUtc -NotePropertyValue ((Get-Date).ToUniversalTime().ToString('o')) -Force
 
-        $staging = Join-Path ([System.IO.Path]::GetTempPath()) ("sp-env-push-" + [guid]::NewGuid().ToString('n'))
-        New-Item -ItemType Directory -Path $staging | Out-Null
-        try {
-            Copy-Item (Join-Path $appDir '*') $staging -Recurse -Force
+        if ($resolved.env -eq 'dev') {
+            $staging = Join-Path ([System.IO.Path]::GetTempPath()) ("sp-env-push-" + [guid]::NewGuid().ToString('n'))
+            New-Item -ItemType Directory -Path $staging | Out-Null
+            try {
+                Copy-Item (Join-Path $appDir '*') $staging -Force
+                $resolved | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $staging 'resolved-env.json') -Encoding utf8
+                node (Join-Path $PSScriptRoot 'push-deploy.js') --staging $staging --note $Note
+                if ($LASTEXITCODE -ne 0) { throw "push-deploy.js failed (exit $LASTEXITCODE)" }
+            } finally {
+                Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "DEPLOY-OK mode=push gitSha=$sha note='$Note' (metadata stamped; see PUSH-DEPLOY-RESULT above)"
+        } else {
+            $staging = Join-Path $repo 'push-staging'
+            if (Test-Path $staging) { Remove-Item (Join-Path $staging '*') -Recurse -Force -ErrorAction SilentlyContinue }
+            New-Item -ItemType Directory -Path $staging -Force | Out-Null
+            Copy-Item (Join-Path $appDir '*') $staging -Force
             $resolved | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $staging 'resolved-env.json') -Encoding utf8
-            node (Join-Path $PSScriptRoot 'push-deploy.js') --staging $staging --note $Note
-            if ($LASTEXITCODE -ne 0) { throw "push-deploy.js failed (exit $LASTEXITCODE)" }
-        } finally {
-            Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "DEPLOY-STAGED mode=push gitSha=$sha — push-staging\ is ready (gitignored)."
+            Write-Host "HUMAN STEPS: open the harness page ($($resolved.pages.harness.path)), click 'run upload.js', select ALL files from push-staging\, set a Note, click Upload, then use 'copy results JSON' to report back."
         }
-        Write-Host "DEPLOY-OK mode=push gitSha=$sha note='$Note' (metadata stamped; see PUSH-DEPLOY-RESULT above)"
     }
     'sync-live' {
         # Stub: delegates to the project's existing Sync-Live pipeline if present.

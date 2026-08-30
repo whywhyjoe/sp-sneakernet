@@ -115,8 +115,9 @@ both tenants** — always resolve through the resolver, never by echoing a dev p
   (`document.createElement('script')`) registers as an anonymous AMD module and
   never sets `window.pnp2`. A literal `<script src=…>` inside SEWP markup runs
   early enough to be safe. When injecting the bundle dynamically, temporarily
-  hide the loader (save `window.define`, set it `undefined`, load, restore) —
-  the template `loader.js`/`harness.js` do this; keep the pattern.
+  hide **`define.amd`** (delete it, load, restore it on success AND failure —
+  not `define` itself) — the template `loader.js`/`harness.js` do this; keep
+  the pattern.
 - Shipped SP code: **no ES module imports**. Build steps allowed but minimal.
 - Deploys overwrite in place; low traffic, "try again" is acceptable.
 - Git bundle transport for offline contributors: `main.bundle` in the synced folder,

@@ -1,6 +1,7 @@
 env.local.json
 *.local.json
 resolved-env.json
+push-staging/
 node_modules/
 *.pfx
 *.cer

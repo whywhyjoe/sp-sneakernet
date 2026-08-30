@@ -12,9 +12,17 @@
       var note = function (m) { actions.push(m); };
       var fail = function (m) { errors.push(m); };
 
+      var TYPE_MAP = { Text: 'Text', Choice: 'Choice', Boolean: 'Boolean', Note: 'Note', Number: 'Number', User: 'User', DateTime: 'DateTime' };
       function ensureField(list, col) {
-        return list.fields.getByInternalNameOrTitle(col.name)().then(function () {
-          note('field ok: ' + col.name);
+        return list.fields.getByInternalNameOrTitle(col.name).select('TypeAsString')().then(function (f) {
+          var expected = TYPE_MAP[col.type] || col.type;
+          if (f.TypeAsString !== expected && !(expected === 'User' && f.TypeAsString === 'UserMulti')) {
+            // An existing field of the WRONG type is an error, not "ok" —
+            // silently accepting it is how drift becomes a mystery later.
+            fail('field ' + col.name + ' exists with type ' + f.TypeAsString + ', manifest says ' + expected + ' — resolve manually (provision will not convert types)');
+          } else {
+            note('field ok: ' + col.name + ' (' + f.TypeAsString + ')');
+          }
         }).catch(function () {
           var f = list.fields;
           var p;
@@ -68,6 +76,13 @@
                 if (canvas.indexOf('__SP_ENV_SCRIPT__') < 0) { throw new Error('template canvas lacks __SP_ENV_SCRIPT__ token'); }
                 var loaderUrl = env.libraries.scripts.url + '/' + (page.loader || 'loader.js');
                 return item.update({ CanvasContent1: canvas.split('__SP_ENV_SCRIPT__').join(loaderUrl) })
+                  .then(function () {
+                    // The item update lands as a draft on versioned page
+                    // libraries — publish so ordinary readers get the rewrite.
+                    return sp.web.getFileByServerRelativePath(rel).publish('sp-env provision').catch(function (e) {
+                      note('publish skipped for ' + page.path + ' (' + (e && e.message ? e.message : e) + ') — verify readers see the rewrite');
+                    });
+                  })
                   .then(function () { note('page created from template: ' + page.path + ' -> ' + loaderUrl); });
               });
             });

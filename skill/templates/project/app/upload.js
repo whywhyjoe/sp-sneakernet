@@ -46,7 +46,10 @@
             return chain.then(function () { fieldsEnsured = true; });
           }
 
-          var chain = sp.web.currentUser().then(function (u) { user = u.Title || u.LoginName; }).catch(function () { });
+          // DeployedBy is required metadata — an unresolvable user fails the run.
+          var chain = sp.web.currentUser().then(function (u) { user = u.Title || u.LoginName; }).catch(function (e) {
+            results.errors.push('cannot resolve current user for DeployedBy: ' + (e && e.message ? e.message : e));
+          });
           Array.prototype.forEach.call(files, function (f) {
             chain = chain.then(function () {
               statusEl.textContent = 'uploading ' + f.name + '…';

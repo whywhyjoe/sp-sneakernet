@@ -10,8 +10,9 @@ Constraints on this machine/tenant:
 Do not reason about SharePoint structure — run scripts and read results back:
 1. Update: `git pull`
 2. Deploy: `pwsh tools/sp/deploy.ps1` (copy mode → OneDrive mirror; allow sync latency).
-   Push mode: ask the human to open the harness page, run `upload.js`, pick the files
-   from this repo's `app/` folder, and set a Note.
+   Push mode: `pwsh tools/sp/deploy.ps1 -Mode push` prepares `push-staging\` (app files +
+   fresh resolved-env.json) and prints the human steps: open the harness page, run
+   `upload.js`, select ALL files from `push-staging\`, set a Note, Upload.
 3. Verify/test: ask the human to open the harness page (`SitePages/_harness-__PROJECT__.aspx`),
    click **run verify.js** then **run test-smoke.js**, then **copy results JSON** and paste it here.
 4. Summarize the pasted results (pass/fail, drift list). Don't re-derive them.

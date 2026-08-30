@@ -15,9 +15,11 @@ pwsh -File ~/.claude/skills/sp-env/scripts/scaffold-project.ps1 -Path C:\dev\rep
 
 **Then:** edit `env.json` (real lists/columns/seed/pages; verify
 `libraries.pnp2.path` matches the actual bundle filename in the shared lib
-root) → `deploy.ps1` → first time `bootstrap-dev.ps1` → `node
-tools/sp/run-harness.js provision | verify | test-smoke`, reading the TestRuns
-rows it prints. Full workflow: SKILL.md §4.
+root) → `deploy.ps1` → first time `bootstrap-dev.ps1` → run each op as its own
+command (these are separate invocations, not a pipeline):
+`node tools/sp/run-harness.js provision`, then `… verify`, then
+`… test-smoke` — each prints its correlated TestRuns row. Full workflow:
+SKILL.md §4.
 
 **One-time site prep (per site, not per project):** a modern page
 `SitePages/_app-template.aspx` whose Script Editor Web Part contains the

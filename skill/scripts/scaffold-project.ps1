@@ -17,6 +17,12 @@ if ($Project -notmatch '^[a-z0-9][a-z0-9-]{1,40}$') { throw "Project name must b
 $tpl = Join-Path (Split-Path $PSScriptRoot -Parent) 'templates\project'
 if (-not (Test-Path $tpl)) { throw "Project template missing at $tpl — reinstall the skill." }
 if (Test-Path (Join-Path $Path 'env.json')) { throw "env.json already exists at $Path — refusing to overwrite an existing project." }
+if (Test-Path $Path) {
+    # Only a fresh/empty directory (a bare `git init` is fine) may be scaffolded —
+    # stamping over unrelated files silently overwrites them.
+    $existing = @(Get-ChildItem $Path -Force | Where-Object { $_.Name -ne '.git' })
+    if ($existing.Count) { throw "Target $Path is not empty ($($existing.Count) item(s) besides .git) — refusing to stamp over existing content." }
+}
 New-Item -ItemType Directory -Path $Path -Force | Out-Null
 
 # Copy template tree with token replacement in text files.

@@ -39,10 +39,24 @@ if (-not $pac) {
 $tenants = Get-Content (Join-Path $HOME '.claude\skills\sp-env\tenants.local.json') -Raw | ConvertFrom-Json
 $pp = $tenants.dev.powerPlatform
 $envId = $pp.environmentId
+if (-not $envId -and $pp.dataverseUrl) { $envId = $pp.dataverseUrl }   # pac accepts the org https URL directly
 if (-not $envId -and $pp.environmentUrl) {
-    $envId = (($pp.environmentUrl -split '/environments/')[1].Trim('/').Split('/')[0]) -replace '^Default-', ''
+    if ($pp.environmentUrl -match '/environments/([^/]+)') { $envId = $Matches[1] -replace '^Default-', '' }
+    elseif ($pp.environmentUrl -match '^https://[^/]+\.crm[0-9]*\.dynamics\.com') { $envId = $pp.environmentUrl }
+    else { throw "Cannot derive an environment id from environmentUrl '$($pp.environmentUrl)' — set dev.powerPlatform.environmentId (GUID) or dataverseUrl." }
 }
-if (-not $envId) { throw 'tenants.local.json dev.powerPlatform.environmentId (or environmentUrl) missing.' }
+if (-not $envId) { throw 'tenants.local.json dev.powerPlatform.environmentId / dataverseUrl / environmentUrl all missing.' }
+
+if ($SolutionName -and $SolutionName -notmatch '^[A-Za-z0-9_]+$') {
+    throw "Solution unique name '$SolutionName' is invalid — letters, digits, underscore only."
+}
+# The unpack destination must stay inside this repo (pac unpack --allowDelete
+# removes files at the destination — an escaping OutDir could delete elsewhere).
+$repoFull = [System.IO.Path]::GetFullPath($repo)
+$destFull = [System.IO.Path]::GetFullPath((Join-Path $repoFull $OutDir))
+if (-not $destFull.StartsWith($repoFull + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "-OutDir '$OutDir' resolves outside the repo ($destFull) — refusing."
+}
 
 # Ensure an authenticated profile (interactive browser sign-in on first run).
 $authList = & $pac auth list 2>&1 | Out-String
@@ -67,13 +81,22 @@ try {
     & $pac solution export --name $SolutionName --path $zip --environment $envId --managed false
     if ($LASTEXITCODE -ne 0) { throw "pac solution export failed (exit $LASTEXITCODE)" }
 
-    $dest = Join-Path $repo $OutDir
-    & $pac solution unpack --zipfile $zip --folder $dest --packagetype Unmanaged --allowDelete
+    & $pac solution unpack --zipfile $zip --folder $destFull --packagetype Unmanaged --allowDelete
     if ($LASTEXITCODE -ne 0) { throw "pac solution unpack failed (exit $LASTEXITCODE)" }
 
-    $files = @(Get-ChildItem $dest -Recurse -File)
-    $flows = @(Get-ChildItem (Join-Path $dest 'Workflows') -Filter *.json -ErrorAction SilentlyContinue)
-    Write-Host "PP-EXPORT-OK solution='$SolutionName' unpacked to $OutDir ($($files.Count) files; $($flows.Count) flow definition(s)). Review and commit."
+    # Keep the importable ZIP in the repo — prod has NO pac and cannot re-pack;
+    # the committed ZIP in packages/ is what pp-import actually consumes.
+    $version = 'unknown'
+    $solXml = Join-Path $destFull 'Other\Solution.xml'
+    if (Test-Path $solXml) { $m = Select-String -Path $solXml -Pattern '<Version>([^<]+)</Version>'; if ($m) { $version = $m.Matches[0].Groups[1].Value } }
+    $pkgDir = Join-Path $repoFull 'packages'
+    New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
+    $pkgZip = Join-Path $pkgDir "$($SolutionName)_$version.zip"
+    Copy-Item $zip $pkgZip -Force
+
+    $files = @(Get-ChildItem $destFull -Recurse -File)
+    $flows = @(Get-ChildItem (Join-Path $destFull 'Workflows') -Filter *.json -ErrorAction SilentlyContinue)
+    Write-Host "PP-EXPORT-OK solution='$SolutionName' v$version unpacked to $OutDir ($($files.Count) files; $($flows.Count) flow definition(s)); importable ZIP at packages\$($SolutionName)_$version.zip. Review and commit BOTH."
 } finally {
     Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -73,7 +73,18 @@ if ($existing) {
     if (-not $item) { throw "Copied harness page but cannot find its list item ($leaf)." }
     $canvas = [string]$item['CanvasContent1']
     if ($canvas -notmatch '__SP_ENV_SCRIPT__') { throw "Template page has no __SP_ENV_SCRIPT__ token in its canvas — fix the template page's SEWP content." }
-    Set-PnPListItem -List 'Site Pages' -Identity $item.Id -Values @{ CanvasContent1 = ($canvas -replace '__SP_ENV_SCRIPT__', $harnessJs) } -Connection $conn | Out-Null
-    Write-Host "[bootstrap-dev] Harness page created from template, SEWP -> $harnessJs"
+    # LITERAL replacement — PowerShell -replace treats the substitution as a
+    # regex template ($& etc.), which can silently write the wrong URL.
+    Set-PnPListItem -List 'Site Pages' -Identity $item.Id -Values @{ CanvasContent1 = $canvas.Replace('__SP_ENV_SCRIPT__', $harnessJs) } -Connection $conn | Out-Null
+    # The item update lands as a draft on versioned page libraries — publish so
+    # ordinary readers get the rewritten page, then verify what published.
+    try {
+        $hf = Get-PnPFile -Url $harnessRel -AsFileObject -Connection $conn
+        $hf.Publish('sp-env bootstrap')
+        Invoke-PnPQuery -Connection $conn
+    } catch { Write-Warning "[bootstrap-dev] Publish failed/unnecessary ($($_.Exception.Message.Split("`n")[0])) — confirm readers see the rewrite." }
+    $check = (Get-PnPListItem -List 'Site Pages' -Id $item.Id -Fields CanvasContent1 -Connection $conn)['CanvasContent1']
+    if ("$check" -notlike "*$harnessJs*") { throw 'Harness page rewrite did not stick — CanvasContent1 lacks the harness.js URL.' }
+    Write-Host "[bootstrap-dev] Harness page created from template, SEWP -> $harnessJs (published, rewrite verified)"
 }
 Write-Host 'BOOTSTRAP-DEV-OK'

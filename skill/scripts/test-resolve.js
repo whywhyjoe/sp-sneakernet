@@ -108,6 +108,15 @@ rejects('root LF dot-segment rejected', () => {
   return resolveTarget(envJson, { env: 'dev' }, evil);
 }, /control characters/);
 
+// --- loader validation (Codex review: loader reaches executable CanvasContent) ---
+rejects('loader traversal rejected', () =>
+  resolveTarget({ site: 'primary', pages: { app: { path: 'a.aspx', loader: '../../shared/other.js' } } }, { env: 'dev' }, tenants), /traversal/);
+rejects('loader with quote-bearing scheme rejected', () =>
+  resolveTarget({ site: 'primary', pages: { app: { path: 'a.aspx', loader: 'https://evil.example/x.js' } } }, { env: 'dev' }, tenants), /scheme/);
+ok('plain loader accepted', () => {
+  resolveTarget({ site: 'primary', pages: { app: { path: 'a.aspx', loader: 'loader.js' } } }, { env: 'dev' }, tenants);
+});
+
 // --- misc contract ---
 rejects('site must be alias', () => resolveTarget({ site: 'https://x.example', libraries: {} }, { env: 'dev' }, tenants), /alias/);
 rejects('env.local required', () => resolveTarget(envJson, null, tenants), /env\.local\.json is required/);

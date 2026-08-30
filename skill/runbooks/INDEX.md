@@ -1,7 +1,9 @@
 # Runbook index
 
-Machine-level runbooks live here with scripts in `../scripts/`. Project-level
-runbooks ship in each repo's `tools/sp/` (built from the templates in Phase 2+).
+All runbook DOCS live here (with machine-level scripts in `../scripts/`).
+Project-level SCRIPTS ship in each repo's `tools/sp/`, stamped from
+`../templates/project/` by scaffold-project; their usage is documented in the
+rows below and in each script's comment header.
 
 | Runbook | Dev | Prod | Status | Notes |
 |---|---|---|---|---|
