@@ -99,4 +99,6 @@ Prod flow: `git pull` → `deploy -mode copy` → human opens harness → runs `
 
 ## Status
 
-Phase 1 (global skill + auth) built and under review. The versioned skill source lives in `skill/`; `install.ps1` deploys it to `~/.claude/skills/sp-env` while preserving machine-local state (tenant config, auth pointers, browser profile). See `sp-two-tenant-handoff.md` for the phased build prompt. Pilot will be a fresh small repo, not an existing project.
+**Built.** All five phases of `sp-two-tenant-handoff.md` are implemented and live-verified: the versioned skill source lives in `skill/`, and `install.ps1` deploys it to `~/.claude/skills/sp-env` while preserving machine-local state (tenant config, auth pointers, browser profile). The pilot project proved the loop end-to-end in a fresh session.
+
+**→ [USING.md](USING.md) is the user guide** — what the system does, when things happen, and where the technical details live. This README stays as the problem statement; the handoff doc stays as the build spec.
