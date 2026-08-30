@@ -15,7 +15,9 @@ param(
     # mirror copy (mirror stays canonical), upload the artifacts directly via
     # PnP and verify SHA256 parity between mirror and live bytes. Never touches
     # sync configuration; OneDrive later syncs identical content.
-    [switch]$DirectUpload
+    [switch]$DirectUpload,
+    # push mode: note stamped into the Note metadata column on each file
+    [string]$Note = ''
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -74,6 +76,32 @@ switch ($Mode) {
             Write-Host "DIRECT-UPLOAD-OK $(@($files).Count) file(s) live, SHA256 mirror parity MATCH (mirror remains canonical)."
         }
     }
-    'push'      { throw 'push mode is a Phase 3 deliverable — not implemented yet.' }
-    'sync-live' { throw 'sync-live mode is a Phase 3 deliverable — not implemented yet.' }
+    'push' {
+        # Browser uploader with metadata stamping (BuildId/GitSha/DeployedBy/Note).
+        # Dev: Playwright drives the harness upload op. Prod: a human opens the
+        # harness, runs upload.js, and picks the files from the cloned repo.
+        $appDir = Join-Path $repo 'app'
+        if (-not (Test-Path $appDir)) { throw "app/ directory not found at $appDir" }
+        $sha = (git -C $repo rev-parse --short HEAD 2>$null); if (-not $sha) { $sha = 'uncommitted' }
+        $resolved | Add-Member -NotePropertyName gitSha -NotePropertyValue "$sha" -Force
+        $resolved | Add-Member -NotePropertyName deployedUtc -NotePropertyValue ((Get-Date).ToUniversalTime().ToString('o')) -Force
+
+        $staging = Join-Path ([System.IO.Path]::GetTempPath()) ("sp-env-push-" + [guid]::NewGuid().ToString('n'))
+        New-Item -ItemType Directory -Path $staging | Out-Null
+        try {
+            Copy-Item (Join-Path $appDir '*') $staging -Recurse -Force
+            $resolved | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $staging 'resolved-env.json') -Encoding utf8
+            node (Join-Path $PSScriptRoot 'push-deploy.js') --staging $staging --note $Note
+            if ($LASTEXITCODE -ne 0) { throw "push-deploy.js failed (exit $LASTEXITCODE)" }
+        } finally {
+            Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "DEPLOY-OK mode=push gitSha=$sha note='$Note' (metadata stamped; see PUSH-DEPLOY-RESULT above)"
+    }
+    'sync-live' {
+        # Stub: delegates to the project's existing Sync-Live pipeline if present.
+        $syncLive = Join-Path $PSScriptRoot 'Sync-Live.ps1'
+        if (Test-Path $syncLive) { & $syncLive; if ($LASTEXITCODE -ne 0) { throw "Sync-Live.ps1 failed (exit $LASTEXITCODE)" } }
+        else { throw "sync-live is a stub: place your existing Sync-Live.ps1 pattern at $syncLive to enable it." }
+    }
 }

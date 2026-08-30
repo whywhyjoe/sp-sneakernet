@@ -13,7 +13,7 @@ runbooks ship in each repo's `tools/sp/` (built from the templates in Phase 2+).
 | `verify` | Playwright drives harness | human runs harness | **available** (template) | Drift report vs env.json; passed = zero drift |
 | `bootstrap-dev` | PnP PS, once | human (manual page) | **available** (template) | Ensures TestRuns + harness page from template page |
 | `reset-dev` | PnP PS | — | **available** (template) | Delete everything in env.json (needs -Force), then deploy → bootstrap → provision → verify |
-| `deploy` | `copy` | `copy` | **copy available**; push/sync-live phase 3 | copy = mirror write incl. resolved-env.json + GitSha; push = browser uploader stamping BuildId/GitSha/DeployedBy/Note |
+| `deploy` | `copy` / `push` (Playwright) / `-DirectUpload` | `copy` / `push` (human runs upload op) | **copy + push available**; sync-live = stub (drop in Sync-Live.ps1) | copy = mirror write incl. resolved-env.json + GitSha; push = harness upload op stamping BuildId/GitSha/DeployedBy/Note (columns auto-ensured) |
 | `test` | Playwright (`run-harness.js`) | human runs harness | **available** (template) | Named ops via harness → TestRuns; dev reads back via REST |
 | `export-results` | — | human | phase 4 | Harness "copy results" button → JSON → JSFiddle |
 | `page-from-template` | via provision | via provision | phase 2 | Standalone entry point for adding a page later |
