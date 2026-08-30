@@ -213,6 +213,52 @@ For everything else, DO NOT reach for the BSP pattern — the simple §4 scaffol
 (or a plain divergent build) is the default. Sections 0–3 bind BSP work like
 any other.
 
+### Power Apps canvas work — operating rules (not design rules)
+
+When working on a Power Apps **canvas app**, these operating facts apply without
+being told. Deep reference: the IanI app repo (`localRepos.ianiApp` in
+`tenants.local.json`), especially its `BUILD-AND-SHIP.md` — §4 (sync ritual) and
+§7 (compiler/control/Studio lessons) are the hard-won parts. Nothing here
+prescribes how an app is designed.
+
+**Toolchain (assume it, don't ask):** Claude Code + the canvas-apps plugin's
+**Canvas Authoring MCP** (`canvas-authoring`, local .NET 10 server; set up via
+`/configure-canvas-mcp`). A **Power Apps Studio browser tab holds the live
+coauthoring session** the MCP pushes into — it exists, stays open all session,
+and is the user's window, not yours. Repo `.pa.yaml` is authoritative; the MCP
+can only WRITE to the session scratchpad, so `sync_canvas` pulls land there and
+get mirrored into the repo. The server canonicalizes YAML on ingest — adopt the
+synced copy as the new baseline, don't fight it.
+
+**THE SYNC RITUAL (version stamping + proof of delivery):**
+- `App.Formulas` carries `* SYNC MARKER: push #N — <desc>`; **bump N on every
+  push**; commit per push with the marker number in the message.
+- Push flow: bump marker → `compile_canvas` (validates AND pushes) →
+  `sync_canvas` to scratchpad → read the post-push marker there → mirror to repo.
+- Proof is three-part: pre-push sync shows the USER's state, post-push sync
+  shows the transition, and the user reads the new marker in Studio. Syncing
+  back only from a session you just pushed into self-confirms — worthless.
+- Marker mismatch ⇒ orphaned session (every Studio refresh orphans it):
+  `connect` again, re-push. Still stuck ⇒ the session has FORKED (version
+  restore does this; even `connect` can re-attach to the dead session) — the
+  user must close the whole browser, reopen, then reconnect.
+- A push is NOT durable until the user saves in Studio (Ctrl+S). `HTTP 401
+  Invalid session state` ⇒ `connect` and retry.
+
+**Studio gotchas (don't chase these as app bugs):** OnStart does not auto-run
+in the editor — blank vars/"broken app" reports usually mean Run OnStart wasn't
+clicked; judge pixels in Preview (F5), never the edit canvas (it ghost-renders
+and lies); card/grid layout edits in the designer forcibly renumber the form —
+position work happens in YAML via push, never the designer; SharePoint schema
+changes need a Data-panel refresh before the session sees new columns.
+
+**Versioning & shipping:** canvas apps do NOT use Dataverse solutions here.
+Ship = export BOTH the canvas package (.zip, primary — its wizard remaps
+connections) and .msapp, commit to `packages/` with SHA-256 checksums, name
+`<App>_<cfgAppVer>_<push#>.<ext>` (that pair is the build number), git tag.
+**Solutions are used ONLY for Power Automate flows** — forced, because that's
+the only way to get flow versioning; that's what `pp-export` is for.
+
 ## 5. Runbooks
 
 Index in `runbooks/INDEX.md`; one page per runbook. Scripts in `scripts/` here

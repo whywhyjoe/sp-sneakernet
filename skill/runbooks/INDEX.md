@@ -17,6 +17,6 @@ runbooks ship in each repo's `tools/sp/` (built from the templates in Phase 2+).
 | `test` | Playwright (`run-harness.js`) | human runs harness | **available** (template) | Named ops via harness → TestRuns; dev reads back via REST |
 | `export-results` | — | human | phase 4 | Harness "copy results" button → JSON → JSFiddle |
 | `page-from-template` | via provision | via provision | phase 2 | Standalone entry point for adding a page later |
-| `pp-export` | pac | — | phase 5 | `pac solution export` + unpack into /solution, commit |
+| `pp-export` | pac | — | phase 5 | `pac solution export` + unpack into /solution, commit. **Flows only** — solutions exist here solely for flow versioning; canvas apps ship as .zip/.msapp (see SKILL.md canvas section) |
 | `pp-import` | — | human | phase 4 | Doc-only: import in maker portal, rebind connections by exact-name match |
 | `prod-update` | — | Copilot | phase 4 | `git pull`, deploy copy mode, remind human to run verify + test harness |
