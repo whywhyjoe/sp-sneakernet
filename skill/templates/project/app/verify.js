@@ -55,7 +55,12 @@
         else if (name !== 'template' && page.loader) { expectedSrc = env.libraries.scripts.url + '/' + page.loader; }
         return sp.web.getFileByServerRelativePath(rel).getItem().then(function (item) {
           return item.select('CanvasContent1')().then(function (it) {
-            var canvas = it.CanvasContent1 || '';
+            // SharePoint HTML-encodes stored canvases (':' becomes '&#58;'),
+            // so decode numeric entities before any literal URL match — the
+            // raw string check was a false-drift generator, found live.
+            var canvas = String(it.CanvasContent1 || '').replace(/&#(\d+);/g, function (m, n) {
+              return String.fromCharCode(Number(n));
+            });
             if (name === 'template') {
               if (canvas.indexOf('__SP_ENV_SCRIPT__') < 0) { drift.push('template page lost its __SP_ENV_SCRIPT__ token'); }
               else { checked.push('page: ' + page.path + ' (token intact)'); }

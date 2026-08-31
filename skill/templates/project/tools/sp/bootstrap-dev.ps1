@@ -83,8 +83,12 @@ if ($existing) {
         $hf.Publish('sp-env bootstrap')
         Invoke-PnPQuery -Connection $conn
     } catch { Write-Warning "[bootstrap-dev] Publish failed/unnecessary ($($_.Exception.Message.Split("`n")[0])) — confirm readers see the rewrite." }
+    # SharePoint HTML-encodes the stored canvas (':' becomes '&#58;'), so
+    # decode numeric entities before matching — the raw -like check was a
+    # false negative when the rewrite had in fact landed (found live).
     $check = (Get-PnPListItem -List 'Site Pages' -Id $item.Id -Fields CanvasContent1 -Connection $conn)['CanvasContent1']
-    if ("$check" -notlike "*$harnessJs*") { throw 'Harness page rewrite did not stick — CanvasContent1 lacks the harness.js URL.' }
+    $checkDecoded = [regex]::Replace("$check", '&#(\d+);', { param($m) [char][int]$m.Groups[1].Value })
+    if ($checkDecoded -notlike "*$harnessJs*") { throw 'Harness page rewrite did not stick — CanvasContent1 lacks the harness.js URL.' }
     Write-Host "[bootstrap-dev] Harness page created from template, SEWP -> $harnessJs (published, rewrite verified)"
 }
 Write-Host 'BOOTSTRAP-DEV-OK'
