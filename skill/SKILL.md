@@ -7,7 +7,7 @@ description: Two-tenant SharePoint dev/prod environment facts, rules, and runboo
 
 Global skill for all SharePoint projects on this machine. Repos carry only a thin
 pointer skill (`.claude/skills/sp-project`) plus their own `env.json` manifest.
-Canonical source: the `skill/` directory of the sp-development-handoff-process
+Canonical source: the `skill/` directory of the sp-sneakernet
 repo; installed to `~/.claude/skills/sp-env` by its `install.ps1`.
 
 ## 0. The one rule (dev side) — HARD RULE

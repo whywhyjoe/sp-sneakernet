@@ -94,7 +94,7 @@ Prod flow: `git pull` → `deploy -mode copy` → human opens harness → runs `
 - **Harness page** — a modern page with a Script Editor Web Part that loads a named script from the scripts library, runs it, and records the outcome. The universal execution surface on both tenants.
 - **Manifest** — `env.json`. The declarative description of what a project needs on SharePoint.
 - **Runbook** — a script plus a one-page doc. The unit of work an agent invokes.
-- **JSFiddle bridge** — the only egress from prod: a human pastes a JSON blob or script into a fiddle; dev reads it from there.
+- **JSFiddle bridge** — the only egress from prod: a human pastes a JSON blob or script into a fiddle; dev reads it from there. Tooling for the fiddle side lives in [`jsfiddle/`](jsfiddle/): stdlib-only Python CLI scripts to fetch/push fiddles on jsfiddle.net, plus reverse-engineering notes on the backend HTTP access.
 - **Deploy mode** — `copy` (Copy-Item into the OneDrive mirror), `push` (browser uploader with metadata), `sync-live` (full pipeline with manifest and mirror rules).
 
 ## Status
