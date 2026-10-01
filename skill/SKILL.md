@@ -195,6 +195,13 @@ For a new project, do THIS:
 6. **Iterate**: change app/, deploy, rerun the relevant op. `reset-dev.ps1
    -Force` for a clean slate. Auth stale at any point → `auth-refresh` → retry.
 
+**Existing project, older scaffold:** when you work on a project on dev, compare
+its `tools/sp/` and `.github/copilot-instructions.md` with
+`templates/project/` here (e.g. a missing `tools/sp/send-to-dev.js`) and bring
+them up to date as part of that work, with `__PROJECT__` replaced by the
+project name. Don't sweep other projects — each catches up when it's next
+worked on.
+
 ### BSP parts — opt-in pattern, NOT the default
 
 Only when the user says they're building a **BSP part / BSP project**: follow
