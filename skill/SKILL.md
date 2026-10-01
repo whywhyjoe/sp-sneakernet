@@ -270,6 +270,8 @@ Available now: `setup-dev-auth` (one-time; `-Rotate` to re-key; `-Audit`),
 `auth-refresh` (run whenever auth is stale, then retry the failed step),
 `scaffold-project`, `import-from-jsfiddle` (read back whatever prod pasted —
 results JSON or code changes — yourself, given the fiddle URL; scripts are in
-the sneakernet repo at `localRepos.sneakernet`), and the stamped project
+the sneakernet repo at `localRepos.sneakernet`), `push-to-jsfiddle` (create
+or update a fiddle from dev — e.g. the drop box prod pastes into; fiddles are
+public, so no tenant facts), and the stamped project
 runbooks (deploy copy mode, bootstrap-dev, reset-dev, run-harness
 provision/verify/test).

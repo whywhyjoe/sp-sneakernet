@@ -53,5 +53,5 @@ JSFiddle login.
   an expiry vanish) — ask for a fresh URL.
 - "was not saved by <user>" → someone else saved a version under the slug.
   Don't work around it; ask the human which version they saved.
-- The write side (`jsfiddle-push.py`) is not part of this flow; see the
-  jsfiddle/ README for its status.
+- Writing a fiddle from dev (e.g. creating the drop box prod pastes into) is
+  [push-to-jsfiddle.md](push-to-jsfiddle.md).

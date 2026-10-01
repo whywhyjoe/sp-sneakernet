@@ -22,8 +22,9 @@ python jsfiddle-push.py update https://jsfiddle.net/<user>/<slug>/ --js app.js
 ```
 
 Dev agents find this folder through `localRepos.sneakernet` in the sp-env
-`tenants.local.json`; the procedure is the sp-env runbook
-[`import-from-jsfiddle`](../skill/runbooks/import-from-jsfiddle.md).
+`tenants.local.json`; the procedures are the sp-env runbooks
+[`import-from-jsfiddle`](../skill/runbooks/import-from-jsfiddle.md) (read) and
+[`push-to-jsfiddle`](../skill/runbooks/push-to-jsfiddle.md) (write).
 
 Status (2026-10-01): JSFiddle moved its editor to a client-rendered page that embeds
 the fiddle as JSON (`<script id="editor-bootstrap">`). Both scripts were rebuilt on it:

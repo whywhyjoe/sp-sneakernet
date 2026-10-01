@@ -19,6 +19,7 @@ rows below and in each script's comment header.
 | `test` | Playwright (`run-harness.js`) | human runs harness | **available** (template) | Named ops via harness → TestRuns; dev reads back via REST |
 | `export-results` | — | human | **available** | Harness "copy results" button → JSON → JSFiddle. [export-results.md](export-results.md) |
 | `import-from-jsfiddle` | agent | — | **available** | Dev reads the fiddle back (`jsfiddle-fetch.py` in the sneakernet repo, `localRepos.sneakernet`): results JSON → report; diff / files → apply + normal dev loop. [import-from-jsfiddle.md](import-from-jsfiddle.md) |
+| `push-to-jsfiddle` | agent | — | **available** | Dev creates/updates a fiddle (`jsfiddle-push.py`; login via a dedicated Edge profile, human signs in once): drop-box fiddles for prod, one-off snippets. Public — no tenant facts. [push-to-jsfiddle.md](push-to-jsfiddle.md) |
 | `page-from-template` | via provision | via provision | phase 2 | Standalone entry point for adding a page later |
 | `pp-export` | pac | — | **available** (template) | `tools/sp/pp-export.ps1`: pac export + unpack into /solution, commit; `-List` to enumerate. **Flows only** — solutions exist here solely for flow versioning; canvas apps ship as .zip/.msapp (see SKILL.md canvas section). pac = dotnet global tool; env GUID in tenants.local.json powerPlatform |
 | `pp-import` | — | human | **available** | Flows-only solution import in maker portal, rebind connections by exact-name match. [pp-import.md](pp-import.md) |
