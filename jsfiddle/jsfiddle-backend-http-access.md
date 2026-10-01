@@ -90,9 +90,14 @@ button). Not used by the scripts — the panels are enough.
   newest version saved by the URL's user; refuses another account's version; `--show`
   compiled page; `--list USER`.
 - `jsfiddle-push.py` — write side: `create` / `update` with `--html/--css/--js` files or
-  inline code, `--title`, `--description`, `--expire`; cookie via `--cookie-file` or
-  `JSFIDDLE_COOKIE`. Flow: GET editor page with cookie → bootstrap JSON → rebuild form →
+  inline code, `--title`, `--description`, `--expire`; session from `jsfiddle-session.js`
+  (overrides: `--cookie-file`, `JSFIDDLE_COOKIE`). Flow: GET editor page with cookie → bootstrap JSON → rebuild form →
   override → multipart POST/PATCH with `X-CSRF-Token`.
+
+- `jsfiddle-session.js` — Playwright persistent profile (`_secrets/jsfiddle-profile`,
+  installed Edge via `channel: 'msedge'`, bundled Chromium fallback). Signed-in check =
+  `context.request.get('/')` → bootstrap `config.session.signedIn`; the session cookie is
+  HttpOnly, so it is read with `context.cookies()`, never `document.cookie`.
 
 ## Prior art
 github.com/facundovictor/jsfiddle-downloader (npm 0.2.2) — read-only, uses the /show/ + list.json endpoints.

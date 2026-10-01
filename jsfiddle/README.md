@@ -7,7 +7,8 @@ plain HTTP against jsfiddle.net's editor pages (embedded bootstrap JSON) and pri
 | File | Purpose |
 | --- | --- |
 | `jsfiddle-fetch.py` | Read side. Fetch a fiddle's HTML/CSS/JS panels + metadata (no auth for public fiddles). A URL without a version resolves to the newest version saved by the URL's user (an unversioned page is the *base* version, and other accounts can save versions under your slug — those are refused). Optionally the compiled `/show/` page, or `--list USER` to enumerate a user's fiddles. |
-| `jsfiddle-push.py` | Write side. `create` a new fiddle or `update` an existing one (makes a new version). Needs a logged-in session cookie via `--cookie-file` or `JSFIDDLE_COOKIE` — see the script's docstring for the one-time setup. |
+| `jsfiddle-push.py` | Write side. `create` a new fiddle or `update` an existing one (makes a new version). Gets the login session from `jsfiddle-session.js` automatically (or `--cookie-file` / `JSFIDDLE_COOKIE` as overrides). |
+| `jsfiddle-session.js` | JSFiddle login kept in a Playwright Edge profile (`_secrets/jsfiddle-profile`, gitignored). `login` opens Edge once for you to sign in; `status` checks it headless; `cookie` is for the push script only. Uses the sp-env skill's Playwright. |
 | `jsfiddle-backend-http-access.md` | Reverse-engineering notes: every endpoint used, auth/CSRF details, what was live-verified and when. |
 
 Typical bridge round trip:
@@ -17,7 +18,7 @@ python jsfiddle-fetch.py https://jsfiddle.net/<user>/<slug>/ -o fiddle_out
 ```
 
 ```bash
-python jsfiddle-push.py update <slug> --js app.js --cookie-file _secrets/jsf_cookie.txt
+python jsfiddle-push.py update https://jsfiddle.net/<user>/<slug>/ --js app.js
 ```
 
 Dev agents find this folder through `localRepos.sneakernet` in the sp-env
@@ -27,6 +28,6 @@ Dev agents find this folder through `localRepos.sneakernet` in the sp-env
 Status (2026-10-01): JSFiddle moved its editor to a client-rendered page that embeds
 the fiddle as JSON (`<script id="editor-bootstrap">`). Both scripts were rebuilt on it:
 fetch is verified end to end; push's request format was captured from the live editor
-and verified by updating a test fiddle from a logged-in page, but the script itself
-has not yet been run with a real cookie file. Cookie setup is in the push script's
-docstring; keep the file in `_secrets/` (gitignored).
+and verified by updating a test fiddle from a logged-in page. The first push from the
+script opens Edge for a one-time JSFiddle login (the profile is then reused headless);
+that first end-to-end run is still pending.

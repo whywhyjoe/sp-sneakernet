@@ -22,21 +22,24 @@ How it works (captured live from the editor 2026-10-01; first version 2026-07-18
     3. Override the code panels / title / description / expiry with your input.
     4. POST or PATCH the form back.
 
-Auth setup (one time per browser session):
-  In Chrome on jsfiddle.net while logged in: DevTools > Network > reload > click
-  the jsfiddle.net document request > Request Headers > copy the whole value of
-  the `Cookie:` header (the session cookie is HttpOnly, so document.cookie
-  does not show it). Save that one line to a file kept OUT of git (this repo
-  ignores _secrets/) and pass --cookie-file, or set JSFIDDLE_COOKIE.
+Auth (default: no manual cookie handling):
+  The session comes from a dedicated Playwright browser profile managed by
+  jsfiddle-session.js (in _secrets/jsfiddle-profile, gitignored). The first
+  run - or any run after the JSFiddle session expires - opens Edge on the
+  login page and waits for you to log in once; after that pushes are fully
+  headless. The cookie is held in memory only. Needs Node + Playwright (the
+  sp-env skill's copy is used if this folder has none).
+  Overrides: --cookie-file FILE or JSFIDDLE_COOKIE (a full `Cookie:` header
+  value copied from DevTools); --no-login fails instead of opening a browser.
   NOTE: the session cookie is a real credential. Treat it like a password.
-
+ 
 Usage:
   # update existing fiddle (creates a new version):
   python jsfiddle-push.py update https://jsfiddle.net/<user>/<slug>/ \
-      --js app.js --css style.css --html index.html --cookie-file _secrets/jsf_cookie.txt
+      --js app.js --css style.css --html index.html
 
   # create a brand-new fiddle (--expire 1 for a throwaway):
-  python jsfiddle-push.py create --title "My fiddle" --js app.js --cookie-file _secrets/jsf_cookie.txt
+  python jsfiddle-push.py create --title "My fiddle" --js app.js
 
   # inline code instead of files:
   python jsfiddle-push.py update <slug> --js-code "console.log('hi')" ...
@@ -48,6 +51,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -65,6 +69,28 @@ FIELDS = [
 ]
 
 
+SESSION_JS = Path(__file__).with_name("jsfiddle-session.js")
+ 
+ 
+def session_cookie(allow_login: bool) -> str:
+    """Cookie header from the Playwright profile; opens a headed login if needed."""
+    def run(cmd, capture):
+        return subprocess.run(["node", str(SESSION_JS), cmd], text=True,
+                              stdout=subprocess.PIPE if capture else None)
+    try:
+        r = run("cookie", True)
+    except FileNotFoundError:
+        sys.exit("node not found - install Node.js, or pass --cookie-file / JSFIDDLE_COOKIE.")
+    if r.returncode == 3 and allow_login:
+        print("JSFiddle session missing or expired - opening a browser to log in...", file=sys.stderr)
+        if run("login", False).returncode != 0:
+            sys.exit("JSFiddle login did not complete.")
+        r = run("cookie", True)
+    if r.returncode != 0 or not r.stdout.strip():
+        sys.exit(f"Could not get a JSFiddle session (jsfiddle-session.js cookie exit {r.returncode}).")
+    return r.stdout.strip()
+ 
+ 
 def multipart(fields: dict) -> tuple[bytes, str]:
     boundary = "----fiddlepipeline" + uuid.uuid4().hex
     out = []
@@ -155,14 +181,17 @@ def main():
     ap.add_argument("--title")
     ap.add_argument("--description")
     ap.add_argument("--expire", help="expiration_days value (e.g. 1); '' = keep forever")
-    ap.add_argument("--cookie-file", help="file containing the Cookie header string")
+    ap.add_argument("--cookie-file", help="file containing the Cookie header string "
+                    "(default: the jsfiddle-session.js browser profile)")
+    ap.add_argument("--no-login", action="store_true",
+                    help="never open a browser to log in; fail if the profile session is stale")
     args = ap.parse_args()
 
     cookie = os.environ.get("JSFIDDLE_COOKIE", "")
     if args.cookie_file:
         cookie = Path(args.cookie_file).read_text(encoding="utf-8").strip()
     if not cookie:
-        sys.exit("No cookie: pass --cookie-file or set JSFIDDLE_COOKIE (see header docs).")
+        cookie = session_cookie(allow_login=not args.no_login)
 
     if args.action == "update":
         if not args.target:
@@ -181,7 +210,8 @@ def main():
     session = cfg.get("session") or {}
     if not session.get("signedIn") or not session.get("csrfToken"):
         sys.exit("Not signed in according to the editor page - the cookie is missing, "
-                 "expired, or lacks the session cookie (copy the full Cookie header).")
+                 "expired, or lacks the session cookie. With the default profile: "
+                 "node jsfiddle-session.js login")
     if method == "PATCH" and (cfg.get("paths") or {}).get("update") != f"/_update/{slug}/":
         sys.exit(f"The editor page offers no update path for '{slug}' - not your fiddle, "
                  "or the slug is wrong.")
