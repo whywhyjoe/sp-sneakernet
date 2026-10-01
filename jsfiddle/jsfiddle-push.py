@@ -86,6 +86,8 @@ def session_cookie(allow_login: bool) -> str:
         if run("login", False).returncode != 0:
             sys.exit("JSFiddle login did not complete.")
         r = run("cookie", True)
+    if r.returncode == 7:
+        sys.exit("The JSFiddle browser profile is busy (another login/push/fetch is using it); retry when it finishes.")
     if r.returncode != 0 or not r.stdout.strip():
         sys.exit(f"Could not get a JSFiddle session (jsfiddle-session.js cookie exit {r.returncode}).")
     return r.stdout.strip()

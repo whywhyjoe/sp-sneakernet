@@ -2,8 +2,8 @@
 
 Last touched: 2026-10-01
 Mode: Joe
-Branch: master, pushed (c341b47)
-State: built and verified on the dev machine; never yet run on a real work (prod) machine.
+Branch: master, private-fiddle read committed locally, not pushed
+State: built and verified on the dev machine, including reading private fiddles; never yet run on a real work (prod) machine.
 
 ## What this is
 
@@ -27,6 +27,12 @@ JSFiddle is the only way data leaves the locked-down work tenant. The bridge has
   - A live prefill, saved as `Jzapert1/9o5231pd` (1-day expiry), fetched and unpacked
     byte-exact.
   - A live push, `Jzapert1/zrsbv5nf` v3 (1-day expiry), through the Edge-profile login.
+- Private fiddles: they return HTTP 500 to every anonymous request, so `jsfiddle-fetch.py`
+  now falls back to `jsfiddle-session.js read|versions` (signed-in Edge profile) on a 500/404.
+  `--signed-in` forces it; `--anon-only` turns it off. Verified live on private
+  `Jzapert1/y91jLw26`: v1's HTML panel came back as 97,135 chars, and the unversioned URL
+  resolved signed in to the newest version, v2. The public `zrsbv5nf` still reads
+  anonymously. Endpoint details: `jsfiddle/jsfiddle-backend-http-access.md` §READ 1.
 - Decision (user): existing projects get `send-to-dev.js` when they are next worked on at dev
   time, not by a sweep. Encoded in `skill/SKILL.md` §4 "Existing project, older scaffold".
 
@@ -45,6 +51,14 @@ JSFiddle is the only way data leaves the locked-down work tenant. The bridge has
       (see `skill/runbooks/copilot-agent-skills-findings.md`, still unproven).
       `.github/copilot-instructions.md` is the guaranteed channel either way.
 
+## Open questions
+
+- For the user: was private fiddle `Jzapert1/y91jLw26` (it holds corporate tenant data,
+  `Scope_List` JSON) saved by hand, or produced by `send-to-dev.js`? Making it private
+  doesn't change send-to-dev's checks. If send-to-dev produced it, its tenant-value check
+  missed this content and needs tightening. If it was a hand paste, nothing to fix.
+  Unverified either way.
+
 ## Companion documents
 
 - `jsfiddle/jsfiddle-backend-http-access.md` — **live** reference: endpoints, bootstrap-JSON
@@ -58,7 +72,17 @@ JSFiddle is the only way data leaves the locked-down work tenant. The bridge has
   accounts can save versions under any slug. `jsfiddle-fetch.py` handles both; don't
   "simplify" that logic away.
 - Never run `jsfiddle-session.js cookie` from an agent; it prints the session cookie. The
-  push script calls it and keeps the cookie in memory.
+  push script calls it and keeps the cookie in memory. `read` / `versions` are agent-safe
+  because `read` prints only `value`, `fiddle` and `header.title/author`. Don't widen that:
+  the bootstrap also holds `session.csrfToken` and `paths.render`, a signed ~1-hour
+  `/show/?token=` URL.
+- The Edge profile allows one process at a time. `jsfiddle-session.js` checks
+  `_secrets/jsfiddle-profile/lockfile` (EBUSY while it's in use) and exits 7. Without
+  that check, a second Edge silently hands off, and the old fallback ran bundled Chromium
+  on the Edge profile, which looked signed out. That fallback now runs only when Edge isn't
+  installed. Keep it that way.
+- Output from a private-fiddle fetch can hold tenant data. Fetch it into a scratch dir
+  outside every repo, never into a repo.
 - Fiddles are public. `send-to-dev.js` blocks `env.local.json` values and secrets; don't
   weaken those checks.
 - **bsp-sp-parts:**

@@ -25,6 +25,26 @@ form; everything the editor needs is in one embedded JSON blob:
 `GET https://jsfiddle.net/{user}/{slug}/{version}/` — plain unauthenticated GET works for
 public fiddles. Parse the bootstrap JSON; `config.value` is the code.
 
+**Private fiddles (verified 2026-10-01, `Jzapert1/y91jLw26`, `config.fiddle.private = true`):**
+an anonymous request gets **HTTP 500** ("Oops. This shouldn't have happened") for the
+editor page, both slug-only and `/{user}/{slug}/` with or without a version. It also
+gets 500 for version numbers that don't exist, so anonymous version probing never reaches
+a 404. `/show/` is **404**, and the fiddle is **absent from list.json**. A signed-in
+request through the owner's profile works normally: 200 for saved versions, 404 past the
+newest, 3xx for another account's version. A plain `context.request.get` from the
+Playwright persistent context is enough; no page render is needed, so the fiddle's
+code never runs. `jsfiddle-session.js read` / `versions` do exactly this, and
+`jsfiddle-fetch.py` falls back to them on 500/404.
+
+What the signed-in bootstrap holds that must **not** be printed:
+- `config.session.csrfToken` and the account details under `config.session`.
+- `config.paths.render`, which is `//fiddle.jshell.net/{user}/{slug}/{n}/show/?token=…`: a
+  signed Rails token, valid ~1 hour, that opens the private `/show/` page.
+
+`read` therefore prints only `{config: {value, fiddle, header: {title, author}}}`.
+`header.author` is `{initials, tooltip, interactive}`, not a username. The author check is
+the redirect check (`maxRedirects: 0`). Fetch skips `--show` for private fiddles.
+
 *Until mid-2026* the page was server-rendered with the code in
 `<textarea name="code_html|code_css|code_js">` (HTML-entity-encoded). `jsfiddle-fetch.py`
 still accepts that layout as a fallback.
@@ -47,7 +67,7 @@ still accepts that layout as a fallback.
 ### 4. Enumerate a user's fiddles
 `GET https://jsfiddle.net/api/user/{user}/demo/list.json?sort=date&start=0&limit=100`
 JSON array; fields: `framework, version, description, title, url, author, latest_version, created`.
-Paginate with `start`. Public fiddles only. `version` = base version; `latest_version` =
+Paginate with `start`. Public fiddles only (private ones are simply missing). `version` = base version; `latest_version` =
 highest version number under the slug, **whoever saved it** (see trap above).
 
 ### Download
@@ -111,6 +131,13 @@ your code (docs.jsfiddle.net); the human then saves. Verified 2026-10-01:
   installed Edge via `channel: 'msedge'`, bundled Chromium fallback). Signed-in check =
   `context.request.get('/')` → bootstrap `config.session.signedIn`; the session cookie is
   HttpOnly, so it is read with `context.cookies()`, never `document.cookie`.
+  `read <url>` / `versions <url>`: signed-in read side for private fiddles (above).
+  **One process at a time:** a running browser holds `<profile>/lockfile` open (EBUSY on
+  Windows). A second Edge on the same profile just hands off to the first one, and
+  Playwright then reports a generic "Target page, context or browser has been closed".
+  The script therefore checks the lockfile before launching and exits 7 ("profile
+  busy"). It falls back to bundled Chromium only when Edge is not installed: Chromium on
+  the Edge profile looks signed out.
 
 ## Prior art
 github.com/facundovictor/jsfiddle-downloader (npm 0.2.2) — read-only, uses the /show/ + list.json endpoints.
