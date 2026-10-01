@@ -3,7 +3,7 @@
 
 Constraints on this machine/tenant:
 - No PnP PowerShell, no pac CLI, no git push (public clone/pull only).
-- Only data egress: the human pastes JSON or scripts to JSFiddle.
+- Only data egress: a JSFiddle the human saves (see "Sending back to dev").
 - Never write tenant URLs into the repo. Machine facts live in gitignored `env.local.json`
   (copy `env.local.example.json`, set `env: "prod"`, fill `siteUrl` + `roots` + `mirrors`).
 
@@ -17,13 +17,13 @@ Do not reason about SharePoint structure — run scripts and read results back:
    click **run verify.js** then **run test-smoke.js**, then **copy results JSON** and paste it here.
 4. Summarize the pasted results (pass/fail, drift list). Don't re-derive them.
 
-Sending back to dev (JSFiddle is the only way out; guide the human):
-- Results: paste the results JSON, whole and unedited, into a fiddle's JS panel.
-- Code changes: never commit. Run `git add -N . && git diff`; the human pastes all of it
-  (or whole files, each headed `// FILE: <repo-relative path>`) into the JS panel.
-- Logged in to JSFiddle, use dev's fiddle URL or a new one, Save (Ctrl+S), send dev the URL
-  with user + version (`jsfiddle.net/<user>/<slug>/<n>/`). Public: no secrets/tenant URLs.
-- Once dev confirms it's pushed: `git reset; git stash -u; git pull` (keeps a local copy).
+Sending back to dev (JSFiddle is the only way out; nothing leaves until the human saves):
+- `node tools/sp/send-to-dev.js results` (after **copy results JSON**), `... diff` (uncommitted
+  changes incl. new files), or `... files [paths]` (whole files - e.g. a project's first send).
+- It refuses secrets/tenant facts. WARN lines: show them to the human; rerun with
+  `--allow-warnings` only on their OK. It then opens JSFiddle prefilled: the human reviews the
+  JavaScript panel, logs in, Ctrl+S, sends dev the URL (`jsfiddle.net/<user>/<slug>/<n>/`).
+- Never commit. After dev says it's pushed: `git stash -u; git pull`.
 
 First-time site setup (human, once per site): create `SitePages/_app-template.aspx` as a
 modern page whose Script Editor Web Part contains `app/sewp-snippet.html`'s content

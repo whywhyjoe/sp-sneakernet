@@ -171,7 +171,8 @@ def fetch_fiddle(url: str, out_dir: Path, want_show: bool = False):
     for lang, ext in (("html", "html"), ("css", "css"), ("js", "js")):
         if panels[lang].strip():
             p = out_dir / f"fiddle.{ext}"
-            p.write_text(panels[lang], encoding="utf-8")
+            # newline="": write the panel exactly - no LF -> CRLF translation on Windows
+            p.write_text(panels[lang], encoding="utf-8", newline="")
             written.append(p)
  
     meta = {"title": title, "user": user, "slug": slug, "version": ver, "source": editor_url}

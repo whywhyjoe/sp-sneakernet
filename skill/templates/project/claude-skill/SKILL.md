@@ -12,7 +12,9 @@ environment facts, name resolution, and runbooks. Read it before any work here.
 - `env.json` — what this project needs (logical names only; never URLs).
 - `env.local.json` — gitignored, this machine; scripts refuse to run without it.
 - `tools/sp/` — deploy.ps1 (copy mode), bootstrap-dev.ps1 (one-time dev),
-  reset-dev.ps1, run-harness.js (Playwright, dev), resolve.js (stamped copy).
+  reset-dev.ps1, run-harness.js (Playwright, dev), resolve.js (stamped copy),
+  send-to-dev.js (PROD: results / diff / whole files → prefilled JSFiddle for
+  the human to review and save; see `.github/copilot-instructions.md`).
 - `app/` — everything deployed to the scripts library: harness.js + ops
   (provision.js / verify.js / test-*.js), loader.js + app.js.
 

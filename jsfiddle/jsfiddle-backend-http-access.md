@@ -82,8 +82,18 @@ button). Not used by the scripts — the panels are enough.
 - `expiration_days` empty = keep forever; `1`, `10`, `30` etc. auto-expire the fiddle
   (verified: `header.expirationDays` reads back 1).
 
-### Sidenote: prefill-only API (no auth, nothing saved)
-`POST https://jsfiddle.net/api/post/{framework}/{version}/` with fields `html, css, js, title, description, resources...` opens an editor prefilled with your code (docs.jsfiddle.net). Useful for "open my local code in a fiddle" without touching the account; the user then saves manually.
+### Prefill API (no auth, nothing saved) — what prod's send-to-dev.js uses
+`POST https://jsfiddle.net/api/post/{framework}/{version}/` (we use `library/pure`) with
+fields `html, css, js, title, description, resources...` opens an editor prefilled with
+your code (docs.jsfiddle.net); the human then saves. Verified 2026-10-01:
+- Text is kept exactly (incl. `//` lines); a 3 MB `js` field round-tripped intact.
+- A browser form POST turns the textarea's newlines into CRLF — consumers must
+  LF-normalize (jsfiddle-unpack.py does; its hashes are over LF text).
+- **The prefilled editor has `bootstrap.autorun: true`** — the JS panel runs on open.
+  send-to-dev.js makes payload line 2 a `throw`, so nothing in it can execute.
+- Ctrl+S while logged in saves via the normal `/_save/` under **the logged-in account**
+  (`/Jzapert1/9o5231pd/`), so fetch's author check works on prefilled saves.
+- The editor opens on the HTML tab; the payload is in the JavaScript tab.
 
 ## Scripts (stdlib-only Python 3.10+)
 - `jsfiddle-fetch.py` — read side: bootstrap-JSON panels + metadata; unversioned URL →
@@ -94,6 +104,9 @@ button). Not used by the scripts — the panels are enough.
   (overrides: `--cookie-file`, `JSFIDDLE_COOKIE`). Flow: GET editor page with cookie → bootstrap JSON → rebuild form →
   override → multipart POST/PATCH with `X-CSRF-Token`.
 
+- `jsfiddle-unpack.py` — dev side of prod's `send-to-dev.js` payloads (`// SNEAKERNET`
+  header, `throw` guard, `// FILE: {path, sha256, eol, finalNewline}` blocks; marker-like
+  content lines are escaped with one extra leading backslash).
 - `jsfiddle-session.js` — Playwright persistent profile (`_secrets/jsfiddle-profile`,
   installed Edge via `channel: 'msedge'`, bundled Chromium fallback). Signed-in check =
   `context.request.get('/')` → bootstrap `config.session.signedIn`; the session cookie is

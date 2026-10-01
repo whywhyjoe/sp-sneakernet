@@ -7,14 +7,20 @@ plain HTTP against jsfiddle.net's editor pages (embedded bootstrap JSON) and pri
 | File | Purpose |
 | --- | --- |
 | `jsfiddle-fetch.py` | Read side. Fetch a fiddle's HTML/CSS/JS panels + metadata (no auth for public fiddles). A URL without a version resolves to the newest version saved by the URL's user (an unversioned page is the *base* version, and other accounts can save versions under your slug — those are refused). Optionally the compiled `/show/` page, or `--list USER` to enumerate a user's fiddles. |
+| `jsfiddle-unpack.py` | Turns a fetched sneakernet fiddle (from prod's `tools/sp/send-to-dev.js`, or a hand paste) back into what it carries: **files** rebuilt byte-exact and sha256-verified, a **diff** checked and `git apply`ed, or **results** saved and summarized. `--into <repo>`, `--dry-run`, `--force`. |
 | `jsfiddle-push.py` | Write side. `create` a new fiddle or `update` an existing one (makes a new version). Gets the login session from `jsfiddle-session.js` automatically (or `--cookie-file` / `JSFIDDLE_COOKIE` as overrides). |
 | `jsfiddle-session.js` | JSFiddle login kept in a Playwright Edge profile (`_secrets/jsfiddle-profile`, gitignored). `login` opens Edge once for you to sign in; `status` checks it headless; `cookie` is for the push script only. Uses the sp-env skill's Playwright. |
 | `jsfiddle-backend-http-access.md` | Reverse-engineering notes: every endpoint used, auth/CSRF details, what was live-verified and when. |
 
-Typical bridge round trip:
+Typical bridge round trip — prod runs `node tools/sp/send-to-dev.js files|diff|results`
+(prefills JSFiddle; the human reviews and saves), then dev:
 
 ```bash
 python jsfiddle-fetch.py https://jsfiddle.net/<user>/<slug>/ -o fiddle_out
+```
+
+```bash
+python jsfiddle-unpack.py fiddle_out --into <project repo> --dry-run
 ```
 
 ```bash

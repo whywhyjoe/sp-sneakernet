@@ -38,7 +38,7 @@ the browser that…", "check whether the session is authenticated…". If the to
 can't do it, the tooling is the bug — fix or report the tooling.
 
 Prod is the opposite: the human runs the harness page; the agent only prepares
-scripts and reads back what the human pastes (via the JSFiddle bridge).
+scripts and reads back what the human sends (via the JSFiddle bridge).
 
 ## 1. Environment facts
 
@@ -51,7 +51,7 @@ scripts and reads back what the human pastes (via the JSFiddle bridge).
 | Script execution on SP | Harness page (PnPjs) + PnP PS | Harness page (PnPjs) only; browser console |
 | Agent | Claude Code (this skill) | GitHub Copilot (VS Code + CLI), tight budget → cheapest model tier |
 | Git | Full | `git clone` / `git pull` from public HTTPS only; **no push** |
-| Data egress | Normal | **JSFiddle only** (human pastes JSON blobs/scripts) |
+| Data egress | Normal | **JSFiddle only** — human reviews + saves a fiddle prefilled by `tools/sp/send-to-dev.js` (results, diff, or whole files) |
 | Data ingress | Normal | Public GitHub clone; OneDrive sync folder |
 | Power Platform | Export/unpack solutions to repo (`pac`) | Manual import in maker portal; no premium → connection refs re-bound by hand |
 | Page hosting | Modern page + Script Editor Web Part (SEWP) loading a script from a library | Same |
