@@ -12,10 +12,15 @@ harness and pastes it where the dev side can read it.
 4. Paste the JSON into the agreed JSFiddle (or directly back to the requesting
    agent/chat if that's the ask).
 
-**Code changes made on prod** travel the same way: paste `git diff` output
-from the prod checkout into the fiddle's JS panel (or whole files, each headed
-`// FILE: <repo-relative path>`), save, and give dev the URL. Dev reads it back
-per [import-from-jsfiddle.md](import-from-jsfiddle.md).
+**Code changes made on prod** travel the same way: paste the output of
+`git add -N . && git diff` (`-N` makes new files show up) from the prod
+checkout into the fiddle's JS panel (or whole files, each headed
+`// FILE: <repo-relative path>`), save while logged in to JSFiddle, and give
+dev the URL with user and version (`jsfiddle.net/<user>/<slug>/<n>/`). Dev
+reads it back per [import-from-jsfiddle.md](import-from-jsfiddle.md). Once dev
+has pushed the change: `git reset; git stash -u; git pull` (plain `git stash`
+fails on `-N` files). The generated `.github/copilot-instructions.md` carries
+the same steps for the prod Copilot.
 
 ## Notes
 
