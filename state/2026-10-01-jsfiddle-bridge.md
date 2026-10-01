@@ -2,7 +2,7 @@
 
 Last touched: 2026-10-01
 Mode: Joe
-Branch: master, private-fiddle read committed locally, not pushed
+Branch: master, pushed (d79eba1)
 State: built and verified on the dev machine, including reading private fiddles; never yet run on a real work (prod) machine.
 
 ## What this is
