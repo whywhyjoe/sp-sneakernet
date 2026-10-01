@@ -27,7 +27,6 @@ Dev agents find this folder through `localRepos.sneakernet` in the sp-env
 
 Status (2026-10-01): JSFiddle moved its editor to a client-rendered page that embeds
 the fiddle as JSON (`<script id="editor-bootstrap">`). Both scripts were rebuilt on it:
-fetch is verified end to end; push's request format was captured from the live editor
-and verified by updating a test fiddle from a logged-in page. The first push from the
-script opens Edge for a one-time JSFiddle login (the profile is then reused headless);
-that first end-to-end run is still pending.
+both verified end to end (push created v3 of test fiddle `Jzapert1/zrsbv5nf` via the
+Edge-profile login; fetch read it back as the newest version by Jzapert1). The first
+push opens Edge for a one-time JSFiddle login; the profile is then reused headless.
