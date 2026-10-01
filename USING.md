@@ -33,7 +33,7 @@ when you name them:
 | nothing special | the simple project scaffold (the default) |
 | "BSP part / BSP project" | the `bsp-sp-parts` repo's four-artifact pattern |
 | canvas app work | the IanI-derived operating rules (sync ritual, Studio traps) |
-| flow / solution work | `pp-export` — solutions are for **flows only**, for versioning |
+| flow work | **no solutions** — legacy flow Package (.zip) in `packages/`, runbooks `pp-export` / `pp-import` |
 
 ## When things happen
 
@@ -53,8 +53,8 @@ agent checks whether OneDrive is running and reports — it is forbidden from
 **When you ship to work (all human-driven, by design):** clone the repo on
 the work machine, deploy by copy, open the harness page in your browser, run
 verify/test, and paste the results JSON back (the JSFiddle bridge). Flow
-solutions import manually in the maker portal from the committed
-`packages/*.zip`. The generated `.github/copilot-instructions.md` in each
+packages import manually (My flows → Import Package (Legacy)) from the
+committed `packages/*.zip`. The generated `.github/copilot-instructions.md` in each
 project tells the work-side Copilot its (deliberately narrow) job.
 
 ## Your moments (the complete list)
@@ -62,7 +62,7 @@ project tells the work-side Copilot its (deliberately narrow) job.
 1. Microsoft sign-ins and admin consent (auth setup, rotation, pac).
 2. Starting OneDrive if it isn't running.
 3. Everything on the prod tenant: running the harness, pasting results,
-   importing solutions, rebinding connections.
+   importing packages, rebinding connections.
 4. Saving in Power Apps Studio during canvas work (a push isn't durable until
    you Ctrl+S).
 
@@ -80,7 +80,7 @@ agent's job, and it's a defect (not a favor to you) if it hands one back.
 | Original problem statement and design | [README.md](README.md) and [sp-two-tenant-handoff.md](sp-two-tenant-handoff.md) |
 | BSP part pattern | the `bsp-sp-parts` repo (path in tenants.local.json) |
 | Canvas app deep reference | the IanI app repo's `BUILD-AND-SHIP.md` (path in tenants.local.json) |
-| Example flow-solution export artifact | [examples/pp-export-throwaway/](examples/pp-export-throwaway/) |
+| Example flow-solution export artifact (historical: solutions and the `pp-export.ps1` script were retired 2026-10-01) | [examples/pp-export-throwaway/](examples/pp-export-throwaway/) |
 
 ## Maintaining it
 

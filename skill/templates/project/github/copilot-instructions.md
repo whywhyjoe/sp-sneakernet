@@ -30,9 +30,9 @@ modern page whose Script Editor Web Part contains `app/sewp-snippet.html`'s cont
 (literal `__SP_ENV_SCRIPT__` token). Copy it to the harness page and point the token at
 this project's deployed `harness.js`; then run `provision.js` from the harness.
 
-Power Platform: solutions are used for FLOWS ONLY (versioning). Import manually in the
-maker portal; re-bind connections by exact name match — list and flow names are identical
-across tenants by convention.
+Power Platform: NO solutions. Check the package's SHA-256 against `packages/CHECKSUMS.txt`
+first. Flow: My flows → Import → Import Package (Legacy), Create as new; canvas: Import canvas
+app. Re-bind connections by hand, by exact name (identical across tenants).
 
 Model use: prefer the cheapest tier; escalate only for build failures.
 Reference: `env.json` = what this project needs (logical names only);

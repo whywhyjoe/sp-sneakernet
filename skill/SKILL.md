@@ -53,7 +53,7 @@ scripts and reads back what the human sends (via the JSFiddle bridge).
 | Git | Full | `git clone` / `git pull` from public HTTPS only; **no push** |
 | Data egress | Normal | **JSFiddle only** — human reviews + saves a fiddle prefilled by `tools/sp/send-to-dev.js` (results, diff, or whole files) |
 | Data ingress | Normal | Public GitHub clone; OneDrive sync folder |
-| Power Platform | Export/unpack solutions to repo (`pac`) | Manual import in maker portal; no premium → connection refs re-bound by hand |
+| Power Platform | Export packages (.zip; canvas also .msapp) by hand to `packages/` with checksums — no solutions | Manual import in maker portal (flows: Import Package (Legacy)); no premium → connections re-bound by hand |
 | Page hosting | Modern page + Script Editor Web Part (SEWP) loading a script from a library | Same |
 
 **Where machine facts live (never in a repo or committed file):**
@@ -199,8 +199,9 @@ For a new project, do THIS:
 its `tools/sp/` and `.github/copilot-instructions.md` with
 `templates/project/` here (e.g. a missing `tools/sp/send-to-dev.js`) and bring
 them up to date as part of that work, with `__PROJECT__` replaced by the
-project name. Don't sweep other projects — each catches up when it's next
-worked on.
+project name. Files the template has retired go too (`tools/sp/pp-export.ps1`,
+retired 2026-10-01 with solutions). Don't sweep other projects — each catches
+up when it's next worked on.
 
 ### BSP parts — opt-in pattern, NOT the default
 
@@ -260,12 +261,18 @@ and lies); card/grid layout edits in the designer forcibly renumber the form —
 position work happens in YAML via push, never the designer; SharePoint schema
 changes need a Data-panel refresh before the session sees new columns.
 
-**Versioning & shipping:** canvas apps do NOT use Dataverse solutions here.
-Ship = export BOTH the canvas package (.zip, primary — its wizard remaps
-connections) and .msapp, commit to `packages/` with SHA-256 checksums, name
-`<App>_<cfgAppVer>_<push#>.<ext>` (that pair is the build number), git tag.
-**Solutions are used ONLY for Power Automate flows** — forced, because that's
-the only way to get flow versioning; that's what `pp-export` is for.
+**Versioning & shipping:** **no Dataverse solutions — not for canvas apps, not
+for flows** (decided 2026-10-01). Canvas ship = export BOTH the canvas package
+(.zip, primary — its wizard remaps connections) and .msapp, commit to
+`packages/` with SHA-256 checksums, name `<App>_<cfgAppVer>_<push#>.<ext>`
+(that pair is the build number), git tag. **Power Automate flows** ship the
+same way: dev → My flows → ⋯ → Export → **Package (.zip)**, committed as
+`packages/<name>_<FlowVersion>.zip` (`FlowVersion` = a constant initialised at
+the top of the flow and shown in its diagnostics) with its SHA-256 in
+`packages/CHECKSUMS.txt`, git tag; prod imports it via My flows → Import →
+**Import Package (Legacy)** and rebinds connections by hand (runbook
+`pp-import`). Never add a flow to a solution, even if the flow it replaces
+lives in one. Git + `packages/` + tags are the version history.
 
 ## 5. Runbooks
 

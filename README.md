@@ -56,7 +56,7 @@ Dev mirrors prod structurally — same logical list names, page names, library n
 - **Facts in files, procedure in scripts, judgment in the agent.** The skill holds environment facts and rules. Runbooks are scripts with a one-page doc each. The agent decides what to run and interprets results.
 - **Logical names everywhere.** Code and manifests refer to `libraries.scripts` or `pages.app`, never to a URL. Resolution happens through a gitignored local file on each machine.
 - **Idempotent by default.** `provision` and `deploy` can run twice safely. `reset-dev` exists so a clean run is one command.
-- **Same code path both sides.** Anything that must work on prod is written in PnPjs and run from the harness page. PnP PowerShell is a dev convenience for the things browsers can't do (site reset, solution export).
+- **Same code path both sides.** Anything that must work on prod is written in PnPjs and run from the harness page. PnP PowerShell is a dev convenience for the things browsers can't do (site reset).
 - **Results are data, not screenshots.** Tests post to a `TestRuns` list. Dev reads it via REST; prod serializes it to JSON for the JSFiddle bridge.
 - **Verified means the agent saw it.** On dev, "done" includes a Playwright-driven check with results read back. The phrases "please confirm in the browser" and "next step: check your session" are defects.
 
@@ -71,7 +71,7 @@ global skill (~/.claude/skills/sp-env)
 repo
    env.json              what this project needs (lists, pages, libraries, flows, deploy mode)
    env.local.json        where that lives on this machine (gitignored)
-   tools/sp/             provision · verify · deploy · reset-dev · run-harness · pp-export
+   tools/sp/             provision · verify · deploy · reset-dev · run-harness · send-to-dev
    harness.html          SEWP-hosted runner: loads a script, runs it, writes TestRuns
    .claude/skills/       thin pointer → global skill
    .github/copilot-instructions.md   generated, prod-only, short
