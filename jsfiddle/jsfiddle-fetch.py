@@ -34,6 +34,7 @@ import html
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
  
@@ -99,17 +100,71 @@ def extract_title(page_html: str) -> str:
     return html.unescape(m.group(1)).strip() if m else "untitled"
  
  
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None  # surface 3xx as HTTPError instead of following it
+ 
+ 
+def version_status(prefix: str, n: int):
+    """GET {prefix}/{n}/ without following redirects -> (status, location).
+    200 = version n exists under this exact path (i.e. saved by that user);
+    302 = it exists but was saved by someone else (redirects to their path);
+    404 = no such version."""
+    req = urllib.request.Request(f"{prefix}/{n}/", headers={"User-Agent": UA})
+    try:
+        with urllib.request.build_opener(_NoRedirect).open(req, timeout=30) as resp:
+            return resp.status, None
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get("Location")
+ 
+ 
+def newest_version(user, slug, max_steps: int = 50) -> str:
+    """An unversioned fiddle URL serves the fiddle's BASE version (usually 0),
+    not the latest. Find the highest version number (list API, else probe up
+    to the first 404), then step down to the newest one saved by `user` -
+    other accounts can save versions under the same slug."""
+    prefix = f"https://jsfiddle.net/{user + '/' if user else ''}{slug}"
+    top = None
+    if user:
+        try:
+            for f in list_fiddles(user, quiet=True):
+                if f.get("url", "").rstrip("/").endswith("/" + slug):
+                    top = int(f.get("latest_version", 0))
+        except Exception:
+            pass  # private fiddle / API change -> probe
+    if top is None:
+        top = 0
+        while version_status(prefix, top + 1)[0] != 404:
+            top += 1
+    if not user:
+        return str(top)  # no owner to check against (caller warns)
+    for n in range(top, max(top - max_steps, -1), -1):
+        status, _ = version_status(prefix, n)
+        if status == 200:
+            return str(n)
+    sys.exit(f"error: none of versions {max(top - max_steps + 1, 0)}..{top} of {slug} "
+             f"were saved by {user}; pass an explicit version in the URL.")
+ 
+ 
 def fetch_fiddle(url: str, out_dir: Path, want_show: bool = False):
     user, slug, ver = parse_fiddle_url(url)
+    if not user:
+        print("warning: no user in URL - cannot check who saved this version", file=sys.stderr)
+    if ver is None:
+        ver = newest_version(user, slug)
+        print(f"no version in URL -> newest version{' by ' + user if user else ''} is v{ver}")
     path = "/".join(p for p in (user, slug, ver) if p)
     editor_url = f"https://jsfiddle.net/{path}/"
+    if user:
+        status, location = version_status(f"https://jsfiddle.net/{user}/{slug}", int(ver))
+        if status in (301, 302, 303, 307, 308):
+            sys.exit(f"error: v{ver} of {slug} was not saved by {user} (redirects to "
+                     f"{location}). Refusing to read another account's version.")
  
     page = http_get(editor_url).decode("utf-8", errors="replace")
     bootstrap = extract_bootstrap(page)
     panels = extract_panels(page, bootstrap)
     title = extract_title(page)
-    if not ver and bootstrap and (bootstrap.get("fiddle") or {}).get("version") is not None:
-        ver = str(bootstrap["fiddle"]["version"])  # record which version "latest" was
  
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -138,7 +193,7 @@ def fetch_fiddle(url: str, out_dir: Path, want_show: bool = False):
         print(f"  wrote {p}")
  
  
-def list_fiddles(user: str):
+def list_fiddles(user: str, quiet: bool = False):
     start, out = 0, []
     while True:
         url = f"https://jsfiddle.net/api/user/{user}/demo/list.json?sort=date&start={start}&limit=100"
@@ -147,9 +202,10 @@ def list_fiddles(user: str):
         if len(chunk) < 100:
             break
         start += len(chunk)
-    for f in out:
-        print(f"{f.get('url','')}  v{f.get('version','?')}/latest {f.get('latest_version','?')}  {f.get('title','')}")
-    print(f"\n{len(out)} fiddles")
+    if not quiet:
+        for f in out:
+            print(f"{f.get('url','')}  v{f.get('version','?')}/latest {f.get('latest_version','?')}  {f.get('title','')}")
+        print(f"\n{len(out)} fiddles")
     return out
  
  

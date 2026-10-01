@@ -22,8 +22,11 @@ JSFiddle login.
 
    Writes `fiddle.html` / `fiddle.css` / `fiddle.js` (only non-empty panels)
    plus `fiddle.json` (title, slug, and the resolved `version` — quote it when
-   reporting so the read is pinned). Omit the version in the URL to get the
-   latest. `--list <user>` enumerates that user's public fiddles.
+   reporting so the read is pinned). Use the `https://jsfiddle.net/<user>/<slug>/`
+   form: with no version it resolves to the newest version **saved by that
+   user**, and it refuses any version another account saved under the slug
+   (JSFiddle allows that). A slug-only URL skips that check — avoid it.
+   `--list <user>` enumerates that user's public fiddles.
 2. Identify what was pasted (normally in the JS panel) and handle it:
    - **Results JSON** (`{suite, passed, results, …}` from the harness copy
      button): parse it and report pass/fail, drift lists, and errors. Compare
@@ -48,5 +51,7 @@ JSFiddle login.
   the parser; don't fall back to asking the human to paste.
 - A 404 means the fiddle is private, deleted, or expired (fiddles saved with
   an expiry vanish) — ask for a fresh URL.
-- The write side (`jsfiddle-push.py`) is not part of this flow and was not
-  re-verified after the 2026 layout change; see the jsfiddle/ README.
+- "was not saved by <user>" → someone else saved a version under the slug.
+  Don't work around it; ask the human which version they saved.
+- The write side (`jsfiddle-push.py`) is not part of this flow; see the
+  jsfiddle/ README for its status.

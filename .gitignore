@@ -14,3 +14,6 @@ auth/
 pw-profile/
 
 node_modules/
+
+# JSFiddle session cookie (jsfiddle/jsfiddle-push.py --cookie-file)
+_secrets/

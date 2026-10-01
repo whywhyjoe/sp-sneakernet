@@ -2,134 +2,146 @@
 """
 jsfiddle-push.py — create a new JSFiddle or push new code to an existing one,
 using plain HTTP requests (no browser automation).
- 
-How it works (endpoints captured live from the editor, July 2026):
+
+How it works (captured live from the editor 2026-10-01; first version 2026-07-18):
   * CREATE:  POST  https://jsfiddle.net/_save/
   * UPDATE:  PATCH https://jsfiddle.net/_update/{slug}/      -> creates a NEW VERSION
   * FORK:    POST  https://jsfiddle.net/_fork/               (not implemented here)
-  Both requests are ordinary form posts (XHR) whose fields mirror the editor's
-  form. The server requires:
-    - your logged-in session cookie   (HttpOnly; copy it from your browser)
-    - authenticity_token              (CSRF; embedded as a hidden <input> in any
-                                       server-rendered editor page, so we GET the
-                                       page first and parse it out)
-  The flow this script uses:
+  Both are multipart/form-data XHRs carrying the editor's form fields (FIELDS
+  below), with the CSRF token sent twice: as the `authenticity_token` field and
+  as the `X-CSRF-Token` header. The JSON reply carries fiddle_path, slug and
+  version.
+  The editor page is client-rendered: everything the form is built from lives
+  in the embedded <script type="application/json" id="editor-bootstrap">
+  (config.session.csrfToken, config.value, config.header, config.panelOptions,
+  config.languages.current). The flow this script uses:
     1. GET the editor page (the fiddle URL for update, jsfiddle.net/ for create)
-       with your Cookie header.
-    2. Parse ALL form fields out of the server-rendered HTML (inputs, checked
-       radios, textareas, selected options) — this preserves the fiddle's
-       existing settings (doctype, JS library, panels, title...).
-    3. Override the code panels / title / description with your new content.
-    4. POST or PATCH the whitelisted field set back.
- 
-Auth setup (one time per session):
-  In Chrome on jsfiddle.net (logged in): DevTools > Application > Cookies >
-  https://jsfiddle.net — copy the cookies into a single header string, e.g.:
-      csrftoken=...; sessionid=...
-  Save it to a file (keep it OUT of git — e.g. an underscore-prefixed folder
-  that your repos gitignore) and pass --cookie-file, or set JSFIDDLE_COOKIE.
+       with your Cookie header, and parse the bootstrap JSON.
+    2. Rebuild the form from it — this preserves the fiddle's existing settings
+       (title, description, expiry, doctype, JS library, panel languages).
+    3. Override the code panels / title / description / expiry with your input.
+    4. POST or PATCH the form back.
+
+Auth setup (one time per browser session):
+  In Chrome on jsfiddle.net while logged in: DevTools > Network > reload > click
+  the jsfiddle.net document request > Request Headers > copy the whole value of
+  the `Cookie:` header (the session cookie is HttpOnly, so document.cookie
+  does not show it). Save that one line to a file kept OUT of git (this repo
+  ignores _secrets/) and pass --cookie-file, or set JSFIDDLE_COOKIE.
   NOTE: the session cookie is a real credential. Treat it like a password.
- 
+
 Usage:
   # update existing fiddle (creates a new version):
-  python jsfiddle-push.py update https://jsfiddle.net/Jzapert1/snxczjv5/ \
+  python jsfiddle-push.py update https://jsfiddle.net/<user>/<slug>/ \
       --js app.js --css style.css --html index.html --cookie-file _secrets/jsf_cookie.txt
- 
-  # create a brand-new fiddle:
+
+  # create a brand-new fiddle (--expire 1 for a throwaway):
   python jsfiddle-push.py create --title "My fiddle" --js app.js --cookie-file _secrets/jsf_cookie.txt
- 
+
   # inline code instead of files:
-  python jsfiddle-push.py update snxczjv5 --js-code "console.log('hi')" ...
- 
-Stdlib only (urllib + html.parser). Python 3.9+.
+  python jsfiddle-push.py update <slug> --js-code "console.log('hi')" ...
+
+Stdlib only (urllib). Python 3.10+.
 """
- 
+
 import argparse
-import html
 import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
-import urllib.parse
+import uuid
 from pathlib import Path
- 
+
 BASE = "https://jsfiddle.net"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) fiddle-pipeline/1.0"
- 
-# Field set observed in the real save/update requests (captured 2026-07-18).
-SEND_FIELDS = [
-    "username", "authenticity_token", "expiration_days", "description",
-    "title", "mistral_api_key", "q", "modalTopMenu", "panel_html", "doctype",
-    "body_tag", "panel_js", "js_lib", "js_lib_option", "panel_css",
-    "normalize_css", "code_html", "code_css", "code_js",
+
+# The editor's form, in the order the browser sends it (captured 2026-10-01).
+FIELDS = [
+    "authenticity_token", "expiration_days", "description", "title",
+    "code_html", "code_css", "code_js", "panel_html", "doctype", "body_tag",
+    "panel_js", "js_lib", "js_lib_option", "panel_css",
 ]
- 
- 
-def http(url, cookie, method="GET", data=None, referer=None):
-    headers = {
-        "User-Agent": UA,
-        "Cookie": cookie,
-        "Referer": referer or url,
-        "Origin": BASE,
-    }
-    if data is not None:
-        headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-        headers["X-Requested-With"] = "XMLHttpRequest"
-        m = re.search(r"csrftoken=([^;]+)", cookie)
-        if m:
-            headers["X-CSRFToken"] = m.group(1)
-        data = urllib.parse.urlencode(data).encode()
+
+
+def multipart(fields: dict) -> tuple[bytes, str]:
+    boundary = "----fiddlepipeline" + uuid.uuid4().hex
+    out = []
+    for name, value in fields.items():
+        out.append(f"--{boundary}\r\n"
+                   f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
+                   f"{value}\r\n")
+    out.append(f"--{boundary}--\r\n")
+    return "".join(out).encode("utf-8"), f"multipart/form-data; boundary={boundary}"
+
+
+def http(url, cookie, method="GET", fields=None, csrf=None, referer=None):
+    headers = {"User-Agent": UA, "Cookie": cookie, "Referer": referer or url}
+    data = None
+    if fields is not None:
+        data, headers["Content-Type"] = multipart(fields)
+        headers.update({"Accept": "application/json, text/plain, */*",
+                        "Origin": BASE, "X-CSRF-Token": csrf})
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.status, resp.read().decode("utf-8", errors="replace")
- 
- 
-def parse_form_fields(page: str) -> dict:
-    """Extract form state from the server-rendered editor page.
-    Inputs (radios/checkboxes only when checked), textareas, selects."""
-    fields = {}
-    for m in re.finditer(r"<input\b[^>]*>", page):
-        tag = m.group(0)
-        name = _attr(tag, "name")
-        if not name or name in fields:
-            continue
-        typ = _attr(tag, "type") or "text"
-        if typ in ("radio", "checkbox") and not re.search(r"\bchecked\b", tag):
-            continue
-        fields[name] = html.unescape(_attr(tag, "value") or "")
-    for m in re.finditer(r'<textarea\b[^>]*name="([^"]*)"[^>]*>([\s\S]*?)</textarea>', page):
-        fields.setdefault(m.group(1), html.unescape(m.group(2)))
-    for m in re.finditer(r'<select\b[^>]*name="([^"]*)"[^>]*>([\s\S]*?)</select>', page):
-        body = m.group(2)
-        options = re.findall(r"<option\b[^>]*>", body)
-        chosen = next((o for o in options if re.search(r"\bselected\b", o)),
-                      options[0] if options else None)
-        val = _attr(chosen, "value") if chosen else None
-        fields.setdefault(m.group(1), html.unescape(val) if val else "")
-    return fields
- 
- 
-def _attr(tag, name):
-    m = re.search(r'%s="([^"]*)"' % name, tag)
-    return m.group(1) if m else None
- 
- 
-def parse_slug(target: str):
-    m = re.search(r"jsfiddle\.net/(?:[\w.-]+/)?(\w+)(?:/(\d+))?/?", target)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
+
+
+def read_bootstrap(page: str) -> dict:
+    m = re.search(r'<script[^>]*id="editor-bootstrap"[^>]*>(.*?)</script>', page, re.DOTALL)
+    if not m:
+        sys.exit("error: no editor-bootstrap JSON in the editor page. JSFiddle's page "
+                 "layout has probably changed; see jsfiddle-backend-http-access.md.")
+    return json.loads(m.group(1))["config"]
+
+
+def form_from_bootstrap(cfg: dict) -> dict:
+    """Rebuild the editor form exactly as the client app fills it."""
+    value, header = cfg.get("value") or {}, cfg.get("header") or {}
+    opts = (cfg.get("panelOptions") or {}).get("values") or {}
+    langs = (cfg.get("languages") or {}).get("current") or {}
+    lang_id = lambda k: str((langs.get(k) or {}).get("id", 0))
+    none_blank = lambda v: "" if v is None else str(v)
+    return {
+        "authenticity_token": (cfg.get("session") or {}).get("csrfToken") or "",
+        "expiration_days": none_blank(header.get("expirationDays")),
+        "description": header.get("description") or "",
+        "title": header.get("title") or "",
+        "code_html": value.get("html") or "",
+        "code_css": value.get("css") or "",
+        "code_js": value.get("js") or "",
+        "panel_html": lang_id("html"),
+        "doctype": none_blank(opts.get("doctype")),
+        "body_tag": opts.get("bodyTag") or "",
+        "panel_js": lang_id("js"),
+        "js_lib": none_blank(opts.get("jsLib")),
+        "js_lib_option": none_blank(opts.get("jsLibOption")),
+        "panel_css": lang_id("css"),
+    }
+
+
+def parse_target(target: str):
+    """URL or slug -> (editor page URL, slug)."""
+    m = re.search(r"jsfiddle\.net/(?:([\w.-]+)/)?(\w+)(?:/(\d+))?/?", target)
     if m:
-        return m.group(1), m.group(2)
-    return target.strip("/").split("/")[0], None
- 
- 
+        path = "/".join(p for p in m.groups() if p)
+        return f"{BASE}/{path}/", m.group(2)
+    slug = target.strip("/").split("/")[0]
+    return f"{BASE}/{slug}/", slug
+
+
 def load_panel(file_arg, code_arg):
     if code_arg is not None:
         return code_arg
     if file_arg:
         return Path(file_arg).read_text(encoding="utf-8")
     return None  # keep existing
- 
- 
+
+
 def main():
     ap = argparse.ArgumentParser(description="Create or update a JSFiddle over HTTP")
     ap.add_argument("action", choices=["create", "update"])
@@ -142,40 +154,40 @@ def main():
     ap.add_argument("--js-code", help="inline JS panel content")
     ap.add_argument("--title")
     ap.add_argument("--description")
-    ap.add_argument("--expire", help="expiration_days value (e.g. 1); default: keep forever")
+    ap.add_argument("--expire", help="expiration_days value (e.g. 1); '' = keep forever")
     ap.add_argument("--cookie-file", help="file containing the Cookie header string")
     args = ap.parse_args()
- 
+
     cookie = os.environ.get("JSFIDDLE_COOKIE", "")
     if args.cookie_file:
         cookie = Path(args.cookie_file).read_text(encoding="utf-8").strip()
     if not cookie:
         sys.exit("No cookie: pass --cookie-file or set JSFIDDLE_COOKIE (see header docs).")
- 
+
     if args.action == "update":
         if not args.target:
             sys.exit("update requires a fiddle URL or slug")
-        slug, _ver = parse_slug(args.target)
-        page_url = f"{BASE}/{args.target}/" if "jsfiddle.net" not in args.target \
-            else args.target if args.target.endswith("/") else args.target + "/"
-        if "jsfiddle.net" not in page_url:
-            page_url = f"{BASE}/{slug}/"
+        page_url, slug = parse_target(args.target)
         endpoint, method = f"{BASE}/_update/{slug}/", "PATCH"
     else:
         page_url = BASE + "/"
         endpoint, method = f"{BASE}/_save/", "POST"
- 
-    # 1-2. GET editor page, parse current form state (incl. authenticity_token)
+
+    # 1. GET editor page, parse the bootstrap JSON
     status, page = http(page_url, cookie)
     if status != 200:
         sys.exit(f"GET {page_url} -> {status}")
-    fields = parse_form_fields(page)
-    if not fields.get("authenticity_token"):
-        sys.exit("No authenticity_token found — is your cookie valid / are you logged in?")
-    if not fields.get("username"):
-        print("warning: no username in page — cookie may not be a logged-in session", file=sys.stderr)
- 
-    # 3. Overrides
+    cfg = read_bootstrap(page)
+    session = cfg.get("session") or {}
+    if not session.get("signedIn") or not session.get("csrfToken"):
+        sys.exit("Not signed in according to the editor page - the cookie is missing, "
+                 "expired, or lacks the session cookie (copy the full Cookie header).")
+    if method == "PATCH" and (cfg.get("paths") or {}).get("update") != f"/_update/{slug}/":
+        sys.exit(f"The editor page offers no update path for '{slug}' - not your fiddle, "
+                 "or the slug is wrong.")
+
+    # 2-3. Rebuild the form, apply overrides
+    fields = form_from_bootstrap(cfg)
     for key, fa, ca in (("code_html", args.html, args.html_code),
                         ("code_css", args.css, args.css_code),
                         ("code_js", args.js, args.js_code)):
@@ -188,21 +200,22 @@ def main():
         fields["description"] = args.description
     if args.expire is not None:
         fields["expiration_days"] = args.expire
- 
-    payload = {k: fields.get(k, "") for k in SEND_FIELDS}
- 
+
     # 4. Send
-    status, body = http(endpoint, cookie, method=method, data=payload, referer=page_url)
+    status, body = http(endpoint, cookie, method=method,
+                        fields={k: fields[k] for k in FIELDS},
+                        csrf=fields["authenticity_token"], referer=page_url)
     print(f"{method} {endpoint} -> {status}")
     try:
-        print(json.dumps(json.loads(body), indent=2)[:800])
-    except Exception:
-        m = re.search(r"/(?:[\w.-]+/)?\w{6,}/(?:\d+/)?", body)
+        reply = json.loads(body)
+    except ValueError:
         print(body[:400] + ("..." if len(body) > 400 else ""))
-        if m:
-            print("new fiddle path?:", m.group(0))
- 
- 
+        sys.exit(1)
+    print(json.dumps(reply, indent=2)[:800])
+    if status != 200 or "fiddle_path" not in reply:
+        sys.exit(1)
+    print(f"fiddle: {BASE}{reply['fiddle_path']}")
+
+
 if __name__ == "__main__":
     main()
- 

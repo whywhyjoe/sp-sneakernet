@@ -2,11 +2,11 @@
 
 Stdlib-only Python CLIs for the JSFiddle side of the prod→dev bridge (see the repo
 README's "JSFiddle bridge" glossary entry). No pip installs, no browser automation —
-plain HTTP against jsfiddle.net's server-rendered pages and private XHR endpoints.
+plain HTTP against jsfiddle.net's editor pages (embedded bootstrap JSON) and private XHR endpoints.
 
 | File | Purpose |
 | --- | --- |
-| `jsfiddle-fetch.py` | Read side. Fetch a fiddle's HTML/CSS/JS panels + metadata (no auth for public fiddles), optionally the compiled `/show/` page, or `--list USER` to enumerate a user's fiddles. |
+| `jsfiddle-fetch.py` | Read side. Fetch a fiddle's HTML/CSS/JS panels + metadata (no auth for public fiddles). A URL without a version resolves to the newest version saved by the URL's user (an unversioned page is the *base* version, and other accounts can save versions under your slug — those are refused). Optionally the compiled `/show/` page, or `--list USER` to enumerate a user's fiddles. |
 | `jsfiddle-push.py` | Write side. `create` a new fiddle or `update` an existing one (makes a new version). Needs a logged-in session cookie via `--cookie-file` or `JSFIDDLE_COOKIE` — see the script's docstring for the one-time setup. |
 | `jsfiddle-backend-http-access.md` | Reverse-engineering notes: every endpoint used, auth/CSRF details, what was live-verified and when. |
 
@@ -25,8 +25,8 @@ Dev agents find this folder through `localRepos.sneakernet` in the sp-env
 [`import-from-jsfiddle`](../skill/runbooks/import-from-jsfiddle.md).
 
 Status (2026-10-01): JSFiddle moved its editor to a client-rendered page that embeds
-the fiddle as JSON (`<script id="editor-bootstrap">`) instead of form textareas.
-`jsfiddle-fetch.py` was updated and re-verified against public fiddles.
-`jsfiddle-push.py` was **not** — it scrapes the old server-rendered form fields, which
-the new page no longer has, so expect it to fail until the save requests are
-re-captured in DevTools (logged in) and the notes file and script updated.
+the fiddle as JSON (`<script id="editor-bootstrap">`). Both scripts were rebuilt on it:
+fetch is verified end to end; push's request format was captured from the live editor
+and verified by updating a test fiddle from a logged-in page, but the script itself
+has not yet been run with a real cookie file. Cookie setup is in the push script's
+docstring; keep the file in `_secrets/` (gitignored).
