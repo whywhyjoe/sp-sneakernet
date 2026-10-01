@@ -6,8 +6,17 @@ Goal: pull/push fiddle code programmatically (no front-end automation) for the h
  
 ### 1. Panel source — the recommended method
 `GET https://jsfiddle.net/{user}/{slug}/{version}/` (plain unauthenticated GET works for public fiddles; omit version for latest).
- 
-The editor page is **server-rendered** and contains the code in three textareas:
+
+**Update 2026-10-01 (verified):** the editor is now a Vite client app. The page embeds
+`<script type="application/json" id="editor-bootstrap">`; parse it and read
+`config.value` = `{html, css, js}` (exact panel sources, plain JSON strings) and
+`config.fiddle` = `{slug, version, pastie_id, private, ...}` (version = what "latest"
+resolved to). There are **no** `code_*` textareas and almost no `<input>`s any more —
+which also means the WRITE flow below (scrape form fields + `authenticity_token` from
+the page) is stale until re-captured. The textarea layout below is kept as history /
+fallback.
+
+*Previous layout (until mid-2026):* the editor page was **server-rendered** and contained the code in three textareas:
  
 - `name="code_html"` / `id="textarea-code-html"`
 - `name="code_css"` / `id="textarea-code-css"`

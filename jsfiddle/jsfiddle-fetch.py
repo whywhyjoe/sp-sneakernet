@@ -2,14 +2,15 @@
 """
 jsfiddle-fetch.py — grab the source code of a JSFiddle via plain HTTP (no browser).
  
-How it works (verified July 2026):
+How it works (re-verified 2026-10-01):
   * A plain GET of the editor page  https://jsfiddle.net/{user}/{slug}/{version}/
-    returns server-rendered HTML containing three <textarea> elements:
-        name="code_html"  id="textarea-code-html"
-        name="code_css"   id="textarea-code-css"
-        name="code_js"    id="textarea-code-js"
-    Their contents are the exact panel sources, HTML-entity-encoded.
+    returns HTML with an embedded
+        <script type="application/json" id="editor-bootstrap">
+    whose config.value = {html, css, js} holds the exact panel sources and
+    config.fiddle = {slug, version, ...} the resolved version.
     No authentication is required for public fiddles.
+    (Until mid-2026 the panels were in <textarea name="code_html|css|js">
+    elements instead; that layout is still accepted as a fallback.)
   * The compiled/rendered single-page result lives at
         https://fiddle.jshell.net/{user}/{slug}/{version}/show/
     That endpoint returns 403 unless you send a Referer header pointing at
@@ -58,16 +59,38 @@ def parse_fiddle_url(url: str):
     return m.group("user"), m.group("slug"), m.group("ver")
  
  
-def extract_panels(page_html: str) -> dict:
-    """Pull the three code panels out of the editor page's textareas."""
-    panels = {}
+def extract_bootstrap(page_html: str) -> dict | None:
+    """The editor's embedded config JSON (current page layout), or None."""
+    m = re.search(
+        r'<script[^>]*id="editor-bootstrap"[^>]*>(.*?)</script>', page_html, re.DOTALL
+    )
+    return json.loads(m.group(1)).get("config") if m else None
+
+
+def extract_panels(page_html: str, bootstrap: dict | None) -> dict:
+    """Pull the three code panels out of the editor page.
+
+    Exits non-zero if the page matches neither known layout, so a JSFiddle
+    redesign fails loudly instead of "succeeding" with no code.
+    """
+    if bootstrap and isinstance(bootstrap.get("value"), dict):
+        value = bootstrap["value"]
+        return {lang: value.get(lang) or "" for lang in ("html", "css", "js")}
+    panels, found = {}, False
     for lang in ("html", "css", "js"):
         m = re.search(
             r'<textarea[^>]*name="code_%s"[^>]*>(.*?)</textarea>' % lang,
             page_html,
             re.DOTALL,
         )
+        found = found or bool(m)
         panels[lang] = html.unescape(m.group(1)) if m else ""
+    if not found:
+        sys.exit(
+            "error: no panel source found in the editor page (no editor-bootstrap "
+            "JSON, no code_* textareas). JSFiddle's page layout has probably "
+            "changed; see jsfiddle-backend-http-access.md."
+        )
     return panels
  
  
@@ -82,8 +105,11 @@ def fetch_fiddle(url: str, out_dir: Path, want_show: bool = False):
     editor_url = f"https://jsfiddle.net/{path}/"
  
     page = http_get(editor_url).decode("utf-8", errors="replace")
-    panels = extract_panels(page)
+    bootstrap = extract_bootstrap(page)
+    panels = extract_panels(page, bootstrap)
     title = extract_title(page)
+    if not ver and bootstrap and (bootstrap.get("fiddle") or {}).get("version") is not None:
+        ver = str(bootstrap["fiddle"]["version"])  # record which version "latest" was
  
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []

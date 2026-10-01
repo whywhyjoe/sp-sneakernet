@@ -13,14 +13,20 @@ plain HTTP against jsfiddle.net's server-rendered pages and private XHR endpoint
 Typical bridge round trip:
 
 ```bash
-python jsfiddle-fetch.py https://jsfiddle.net/Jzapert1/snxczjv5/ -o fiddle_out
+python jsfiddle-fetch.py https://jsfiddle.net/<user>/<slug>/ -o fiddle_out
 ```
 
 ```bash
-python jsfiddle-push.py update snxczjv5 --js app.js --cookie-file _secrets/jsf_cookie.txt
+python jsfiddle-push.py update <slug> --js app.js --cookie-file _secrets/jsf_cookie.txt
 ```
 
-Caveat: the write endpoints (`/_save/`, `/_update/`) and the form-field whitelist are
-a snapshot of JSFiddle's private editor API, captured and verified 2026-07-18. If
-pushes start failing, re-capture the requests in DevTools and diff against the notes
-file before debugging the scripts.
+Dev agents find this folder through `localRepos.sneakernet` in the sp-env
+`tenants.local.json`; the procedure is the sp-env runbook
+[`import-from-jsfiddle`](../skill/runbooks/import-from-jsfiddle.md).
+
+Status (2026-10-01): JSFiddle moved its editor to a client-rendered page that embeds
+the fiddle as JSON (`<script id="editor-bootstrap">`) instead of form textareas.
+`jsfiddle-fetch.py` was updated and re-verified against public fiddles.
+`jsfiddle-push.py` was **not** — it scrapes the old server-rendered form fields, which
+the new page no longer has, so expect it to fail until the save requests are
+re-captured in DevTools (logged in) and the notes file and script updated.

@@ -12,6 +12,11 @@ harness and pastes it where the dev side can read it.
 4. Paste the JSON into the agreed JSFiddle (or directly back to the requesting
    agent/chat if that's the ask).
 
+**Code changes made on prod** travel the same way: paste `git diff` output
+from the prod checkout into the fiddle's JS panel (or whole files, each headed
+`// FILE: <repo-relative path>`), save, and give dev the URL. Dev reads it back
+per [import-from-jsfiddle.md](import-from-jsfiddle.md).
+
 ## Notes
 
 - The JSON contains `{suite, passed, results}` plus whatever the op reported
